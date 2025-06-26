@@ -1,0 +1,7 @@
+This is a sample text file for testing.
+It contains multiple lines of content.
+Some special characters: éñ中文 àáâã
+Numbers: 123456789
+Symbols: !@#$%^&*()_+-=[]{}|;:,.<>?
+
+End of file.
