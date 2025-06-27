@@ -1,16 +1,43 @@
-def build_master_prompt(source_text: str, brand_guide_text: str, post_history: list, platform: str, count: int) -> str:
+def build_master_prompt(
+    source_text: str, 
+    brand_guide_text: str, 
+    post_history: list, 
+    platform: str, 
+    count: int,
+    advanced_settings: dict = None
+) -> str:
     """
-    Build comprehensive prompt for LLM generation.
+    Build comprehensive prompt for LLM generation with advanced settings support.
+    
+    This function creates a detailed, structured prompt that incorporates brand guidelines,
+    post history, platform requirements, and advanced user preferences.
     
     Args:
-        source_text: Combined text from source files
-        brand_guide_text: Brand guide content
-        post_history: List of previous posts
-        platform: Target social media platform
-        count: Number of posts to generate
+        source_text (str): Combined text from source files containing content to share
+        brand_guide_text (str): Brand guide content for voice/tone consistency
+        post_history (list): List of previous posts for style learning
+        platform (str): Target social media platform ('X', 'LinkedIn', etc.)
+        count (int): Number of posts to generate
+        advanced_settings (dict, optional): Advanced generation preferences including:
+            - creativity_level: 'Conservative', 'Balanced', 'Creative', 'Innovative'
+            - include_hashtags: bool
+            - include_emojis: bool
+            - content_tone: 'Professional', 'Casual', 'Friendly', etc.
+            - call_to_action: bool
+            - avoid_controversy: bool
         
     Returns:
-        str: Formatted prompt for LLM
+        str: Formatted prompt for LLM with all requirements and guidelines
+        
+    Example:
+        >>> prompt = build_master_prompt(
+        ...     source_text="Product launch announcement...",
+        ...     brand_guide_text="Professional tone, innovative...",
+        ...     post_history=["Previous post 1", "Previous post 2"],
+        ...     platform="LinkedIn",
+        ...     count=3,
+        ...     advanced_settings={'creativity_level': 'Creative', 'include_hashtags': True}
+        ... )
     """
     # Platform-specific formatting rules
     platform_rules = {
@@ -47,19 +74,41 @@ Here are examples of previous posts to understand the preferred style and tone:
     else:
         prompt += "\nNo previous post examples provided. Create content that aligns with the brand guidelines above."
     
+    # Parse advanced settings with defaults
+    if advanced_settings is None:
+        advanced_settings = {}
+    
+    creativity_level = advanced_settings.get('creativity_level', 'Balanced')
+    include_hashtags = advanced_settings.get('include_hashtags', True)
+    include_emojis = advanced_settings.get('include_emojis', True)
+    content_tone = advanced_settings.get('content_tone', 'Professional')
+    call_to_action = advanced_settings.get('call_to_action', True)
+    avoid_controversy = advanced_settings.get('avoid_controversy', True)
+    
     prompt += f"""
 
 ## PLATFORM-SPECIFIC REQUIREMENTS FOR {platform.upper()}
 {platform_rules.get(platform, "Follow general social media best practices.")}
+
+## ADVANCED GENERATION PREFERENCES
+- Creativity Level: {creativity_level} (adjust innovation vs. safety accordingly)
+- Content Tone: {content_tone}
+- Include Hashtags: {"Yes" if include_hashtags else "No"}
+- Include Emojis: {"Yes, use appropriately" if include_emojis else "No emojis"}
+- Call-to-Action: {"Include where relevant" if call_to_action else "Avoid direct CTAs"}
+- Content Safety: {"Avoid controversial topics" if avoid_controversy else "Normal content guidelines"}
 
 ## GENERATION INSTRUCTIONS
 Please generate exactly {count} {'post' if count == 1 else 'posts'} that:
 1. Incorporate the source material naturally and engagingly
 2. Follow the brand voice and guidelines provided
 3. Match the style and tone of previous posts
-4. Adhere to {platform} platform requirements
+4. Adhere to {platform} platform requirements and character limits
 5. Are unique and distinct from each other
-6. Include appropriate calls-to-action where relevant
+6. Follow the advanced preferences specified above
+7. {"Include relevant hashtags" if include_hashtags else "Avoid hashtags"}
+8. {"Use emojis appropriately" if include_emojis else "Do not use emojis"}
+9. {"Include calls-to-action where relevant" if call_to_action else "Focus on informational content"}
 
 ## OUTPUT FORMAT
 Format your response exactly as follows, separating each post with "---":
