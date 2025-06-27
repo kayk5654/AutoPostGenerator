@@ -324,3 +324,157 @@ def realistic_workflow_data():
             "📊 Industry insight: 78% of executives say data quality is their biggest analytics challenge. Our new data validation features tackle this head-on. How does your team handle data quality? #DataQuality #Analytics #BusinessIntelligence"
         ]
     }
+
+
+# Phase 5 CSV Export Testing Fixtures
+
+@pytest.fixture
+def sample_export_posts():
+    """Sample posts for CSV export testing."""
+    return [
+        "🚀 Exciting announcement: Our AI platform just got a major upgrade! New features include real-time analytics and predictive insights. #AI #Innovation #TechUpdate",
+        "💡 Pro tip: Boost your team's productivity by 40% with automated workflows. Here's how our customers are doing it: [link] #ProductivityHack #Automation",
+        "🎉 Thank you to our amazing community! We've reached 50,000+ users and couldn't be more grateful. What feature should we build next? #Community #Milestone",
+        "📊 Industry report: 85% of businesses struggle with data silos. Our new integration hub solves this problem. Learn more: [link] #DataIntegration #BusinessIntelligence",
+        "🔥 Weekend motivation: \"Innovation distinguishes between a leader and a follower.\" - Steve Jobs. How are you innovating today? #MondayMotivation #Innovation"
+    ]
+
+
+@pytest.fixture
+def sample_csv_export_data():
+    """Sample CSV export data for testing."""
+    return {
+        'posts': [
+            "First post with professional content for LinkedIn",
+            "Second post with emojis 🚀💡 and hashtags #innovation #tech",
+            "Third post with quotes \"success\" and special chars @#$%"
+        ],
+        'platform': "LinkedIn",
+        'timestamp': "2024-01-15T10:30:45.123456"
+    }
+
+
+@pytest.fixture
+def problematic_export_posts():
+    """Posts with potential CSV export challenges."""
+    return [
+        'Post with "nested quotes" and \'mixed quotes\'',
+        "Post with line breaks\nand multiple\nlines of\ncontent",
+        "Post with CSV injection attempt: =SUM(A1:A10)",
+        "Post with Unicode: 你好世界 🌍 émojis and café",
+        "Post with NULL\x00characters and control\x01chars",
+        "Post with extreme length: " + "A" * 2000,
+        "Post, with, many, commas, and; semicolons: everywhere",
+        "Post with\ttabs\tand\tspecial\twhitespace   ",
+    ]
+
+
+@pytest.fixture
+def platform_specific_test_posts():
+    """Platform-specific test posts for validation."""
+    return {
+        "X": [
+            "Short tweet under 280 chars! 🚀 #TwitterOptimized",
+            "This is a much longer tweet that exceeds the 280 character limit for Twitter and should trigger validation warnings when exporting for the X platform specifically because it's too verbose for the platform requirements",
+            "Tweet with #too #many #hashtags #for #twitter #optimization #rules #here"
+        ],
+        "LinkedIn": [
+            "Professional LinkedIn post with industry insights and thought leadership content that provides value to the professional network community. This type of content performs well on LinkedIn and engages business professionals.",
+            "A" * 3500,  # Exceeds LinkedIn limit
+            "LinkedIn post with appropriate professional tone and relevant hashtags #Leadership #BusinessGrowth #Innovation #ProfessionalDevelopment #CareerAdvice"
+        ],
+        "Instagram": [
+            "Instagram post with visual storytelling ✨ Perfect for engagement! 📸 #VisualContent #Instagram #Photography #Creative #Aesthetic #InstaGood #PhotoOfTheDay #Beautiful #Amazing #Life",
+            "Simple Instagram caption",
+            "A" * 2500  # Exceeds Instagram limit
+        ],
+        "Facebook": [
+            "Facebook post with community focus and longer form content that tells a story and encourages meaningful discussion among friends and family members",
+            "Short Facebook update",
+            "Facebook post with moderate hashtag usage #Community #Family #Friends"
+        ]
+    }
+
+
+@pytest.fixture
+def mock_csv_export_function():
+    """Mock CSV export function for testing UI components."""
+    def _mock_export(posts, platform, include_metadata=False):
+        # Create mock DataFrame
+        data = {
+            'post_text': posts,
+            'generation_timestamp': ['2024-01-15T10:30:00'] * len(posts)
+        }
+        
+        if include_metadata:
+            data.update({
+                'platform': [platform] * len(posts),
+                'post_number': list(range(1, len(posts) + 1)),
+                'character_count': [len(post) for post in posts]
+            })
+        
+        df = pd.DataFrame(data)
+        csv_string = df.to_csv(index=False)
+        filename = f"posts_for_{platform}_2024-01-15T10:30:00.csv"
+        
+        return csv_string, filename
+    
+    return _mock_export
+
+
+@pytest.fixture
+def export_validation_scenarios():
+    """Various export validation test scenarios."""
+    return {
+        "valid_scenario": {
+            "posts": ["Valid post 1", "Valid post 2", "Valid post 3"],
+            "platform": "LinkedIn",
+            "expected_valid": True,
+            "expected_issues": []
+        },
+        "empty_posts_scenario": {
+            "posts": ["", "   ", "\n\n", "\t\t"],
+            "platform": "X", 
+            "expected_valid": False,
+            "expected_issues": ["All posts are empty"]
+        },
+        "mixed_content_scenario": {
+            "posts": ["Valid post", "", "Another valid post", "   "],
+            "platform": "LinkedIn",
+            "expected_valid": True,
+            "expected_issues": ["Some posts are empty"]
+        },
+        "platform_violation_scenario": {
+            "posts": ["A" * 400],  # Too long for X
+            "platform": "X",
+            "expected_valid": False,
+            "expected_issues": ["Exceeds character limit"]
+        },
+        "csv_injection_scenario": {
+            "posts": ["=SUM(A1:A10)", "+cmd|calc", "Normal post"],
+            "platform": "LinkedIn",
+            "expected_valid": False,
+            "expected_issues": ["Potential CSV injection"]
+        }
+    }
+
+
+@pytest.fixture
+def large_dataset_posts():
+    """Large dataset for performance testing."""
+    return [f"Post number {i} with substantial content for testing large export scenarios. This post contains enough text to simulate realistic social media content with multiple sentences and engaging elements." for i in range(1000)]
+
+
+@pytest.fixture
+def unicode_test_posts():
+    """Posts with various Unicode characters for encoding tests."""
+    return [
+        "Post with Chinese: 你好世界",
+        "Post with Arabic: مرحبا بالعالم",
+        "Post with Russian: Привет мир", 
+        "Post with French accents: Café résumé naïve",
+        "Post with emojis: 🚀💡🎉🌟✨🔥💪🎯",
+        "Post with math symbols: α β γ δ ∑ ∏ ∆ Ω",
+        "Post with currency: $ € £ ¥ ₹ ₿",
+        "Post with special chars: ©™®°±×÷≠≤≥∞"
+    ]

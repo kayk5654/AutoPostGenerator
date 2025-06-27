@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from config import LLM_PROVIDERS, TARGET_PLATFORMS, SUPPORTED_TEXT_FORMATS, SUPPORTED_HISTORY_FORMATS
 from services.post_service import generate_posts_workflow
+from utils.data_exporter import create_csv_export, validate_export_data, get_export_statistics
 
 st.set_page_config(
     page_title="Auto Post Generator",
@@ -290,41 +291,160 @@ if st.session_state.generated_posts:
     st.markdown("---")
     st.subheader("Step 6: Export Posts")
     
-    # Validation before export
-    can_export = True
-    export_warnings = []
+    # Get export statistics
+    stats = get_export_statistics(st.session_state.editing_posts)
     
-    if empty_posts > 0:
-        export_warnings.append(f"⚠️ {empty_posts} post(s) are empty")
-        can_export = False
-    
-    if over_limit > 0:
-        export_warnings.append(f"⚠️ {over_limit} post(s) exceed platform character limits")
-    
-    if export_warnings:
-        for warning in export_warnings:
-            st.warning(warning)
-    
-    if can_export:
-        st.success("✅ All posts are ready for export!")
-    
-    # Export buttons
-    col1, col2 = st.columns(2)
-    
+    # Display export statistics
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        if st.button("📄 Export to CSV", type="secondary", disabled=not can_export):
-            st.success("CSV export functionality will be implemented in Phase 5")
-            st.info(f"Will export {len(st.session_state.editing_posts)} edited posts for {st.session_state.target_platform}")
-    
+        st.metric("Total Posts", stats['total_posts'])
     with col2:
-        if st.button("📋 Copy All Posts", disabled=not can_export):
-            all_posts_text = "\n\n---\n\n".join([f"Post {i+1}:\n{post}" for i, post in enumerate(st.session_state.editing_posts) if post.strip()])
-            st.code(all_posts_text, language="text")
-            st.success("All posts displayed above - you can copy them manually")
+        st.metric("Valid Posts", stats['valid_posts'])
+    with col3:
+        st.metric("Avg Length", f"{stats['average_length']} chars")
+    with col4:
+        size_display = f"{stats['estimated_file_size_kb']} KB"
+        if stats['estimated_file_size_kb'] > 1000:
+            size_display = f"{stats['estimated_file_size_kb']/1024:.1f} MB"
+        st.metric("Est. File Size", size_display)
+    
+    # Validate export data
+    is_valid, validation_issues = validate_export_data(
+        st.session_state.editing_posts, 
+        st.session_state.target_platform
+    )
+    
+    # Display validation results
+    warnings = [issue for issue in validation_issues if issue.startswith("Warning:")]
+    errors = [issue for issue in validation_issues if not issue.startswith("Warning:")]
+    
+    for error in errors:
+        st.error(f"❌ {error}")
+    
+    for warning in warnings:
+        st.warning(f"⚠️ {warning}")
+    
+    if is_valid and stats['valid_posts'] > 0:
+        st.success(f"✅ Ready to export {stats['valid_posts']} posts!")
+        
+        # Export options
+        with st.expander("🔧 Export Options", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                include_metadata = st.checkbox(
+                    "Include Metadata Columns",
+                    value=False,
+                    help="Add platform, post_number, and character_count columns"
+                )
+                
+                show_preview = st.checkbox(
+                    "Show Export Preview",
+                    value=False,
+                    help="Preview the export data before download"
+                )
+            
+            with col2:
+                encoding_option = st.selectbox(
+                    "File Encoding",
+                    ["UTF-8", "UTF-16", "ISO-8859-1"],
+                    index=0,
+                    help="Choose character encoding for the CSV file"
+                )
+                
+                timestamp_format = st.selectbox(
+                    "Timestamp Format",
+                    ["ISO 8601", "RFC 3339", "Human Readable"],
+                    index=0,
+                    help="Select timestamp format for export"
+                )
+        
+        # Generate CSV data for export
+        try:
+            csv_string, filename = create_csv_export(
+                st.session_state.editing_posts,
+                st.session_state.target_platform,
+                include_metadata=include_metadata
+            )
+            
+            # Show preview if requested
+            if show_preview:
+                st.markdown("### 📋 Export Preview")
+                
+                # Parse CSV to show preview
+                import io
+                preview_df = pd.read_csv(io.StringIO(csv_string))
+                
+                # Show first few rows
+                st.dataframe(preview_df.head(min(5, len(preview_df))), use_container_width=True)
+                
+                if len(preview_df) > 5:
+                    st.caption(f"Showing first 5 rows of {len(preview_df)} total rows")
+            
+            # Export buttons
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                # Main CSV export button
+                file_size_warning = ""
+                if stats['estimated_file_size_kb'] > 1000:  # > 1MB
+                    file_size_warning = f" (⚠️ ~{stats['estimated_file_size_kb']/1024:.1f}MB)"
+                
+                download_label = f"📄 Export to CSV{file_size_warning}"
+                download_help = "Download your edited posts as a CSV file"
+                if file_size_warning:
+                    download_help += f". Large file warning: ~{stats['estimated_file_size_kb']/1024:.1f}MB"
+                
+                st.download_button(
+                    label=download_label,
+                    data=csv_string,
+                    file_name=filename,
+                    mime="text/csv",
+                    help=download_help,
+                    use_container_width=True
+                )
+            
+            with col2:
+                # Copy all posts button
+                if st.button("📋 Copy All Posts", use_container_width=True):
+                    valid_posts = [post for post in st.session_state.editing_posts if post.strip()]
+                    all_posts_text = "\n\n---\n\n".join([f"Post {i+1}:\n{post}" for i, post in enumerate(valid_posts)])
+                    st.code(all_posts_text, language="text")
+                    st.success("All posts displayed above - you can copy them manually")
+            
+            with col3:
+                # Export with metadata button (if not already selected)
+                if not include_metadata:
+                    try:
+                        csv_with_metadata, filename_metadata = create_csv_export(
+                            st.session_state.editing_posts,
+                            st.session_state.target_platform,
+                            include_metadata=True
+                        )
+                        
+                        st.download_button(
+                            label="📊 Export with Metadata",
+                            data=csv_with_metadata,
+                            file_name=filename_metadata.replace('.csv', '_metadata.csv'),
+                            mime="text/csv",
+                            help="Export with additional columns: platform, post_number, character_count",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.error(f"Error creating metadata export: {str(e)}")
+        
+        except Exception as e:
+            st.error(f"❌ Error preparing export: {str(e)}")
+            st.info("Please check your posts and try again")
+    
+    elif stats['valid_posts'] == 0:
+        st.info("📝 No valid posts to export. Please add content to your posts first.")
+    else:
+        st.error("❌ Export validation failed. Please fix the issues above before exporting.")
 
 else:
     # Empty state when no posts are generated
     st.info("📝 No posts generated yet. Use the 'Generate Posts' button above to create posts based on your inputs.")
 
 st.markdown("---")
-st.caption("Auto Post Generator MVP - Phase 4: Display, Edit, and State Management")
+st.caption("Auto Post Generator MVP - Phase 5: CSV Export Functionality")
