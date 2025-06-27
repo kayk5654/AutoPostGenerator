@@ -1,6 +1,11 @@
 streamlit==1.29.0
 pandas==2.1.4
 
+# LLM SDK dependencies
+google-generativeai==0.3.2
+openai==1.3.7
+anthropic==0.7.7
+
 # Testing dependencies
 pytest==7.4.3
 pytest-mock==3.12.0
