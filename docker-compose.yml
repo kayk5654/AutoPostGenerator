@@ -1,0 +1,69 @@
+# Auto Post Generator - Docker Compose Configuration
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: auto-post-generator
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    environment:
+      - LOG_LEVEL=INFO
+      - LOG_FILE=logs/app.log
+      - LOG_FORMAT=json
+      - LOG_CONSOLE=0
+      - MAX_FILE_SIZE_MB=10
+      - MAX_POSTS_PER_REQUEST=50
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 512M
+    networks:
+      - app-network
+
+  # Optional: Nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    container_name: auto-post-generator-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - app-network
+    profiles:
+      - production
+
+  # Optional: Redis for session management (future use)
+  redis:
+    image: redis:alpine
+    container_name: auto-post-generator-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - app-network
+    profiles:
+      - production
+
+networks:
+  app-network:
+    driver: bridge
