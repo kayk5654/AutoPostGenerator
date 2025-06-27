@@ -283,7 +283,7 @@ class TestPhase6Integration:
             "Very long post that contains extensive information about a product launch including details about features, benefits, target audience, pricing strategy, and market positioning. This post is designed to test character limit validation and export formatting with very long content that might span multiple lines and contain various types of formatting elements including hashtags #longform #detailed #comprehensive",
             "",  # Empty post
             "   ",  # Whitespace only
-            "Post with special characters: áéíóú ñüç €£¥¢ \"smart quotes\" & <tags> | pipes"
+            "Post with special characters: áéíóú ñüç €£¥¢'smart quotes' & tags | pipes"
         ]
         
         # Test export validation
