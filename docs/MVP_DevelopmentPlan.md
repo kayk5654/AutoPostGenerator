@@ -279,3 +279,141 @@ All 6 phases have been successfully completed with comprehensive implementation:
 - **Architecture:** Clean, modular, scalable design with proper error handling and validation
 
 The Auto Post Generator is now a production-ready application that can generate AI-powered social media content with enterprise-grade reliability, security, and user experience.
+
+---
+
+## 🚀 POST-MVP ENHANCEMENT PLAN
+
+**Status: PLANNING PHASE**
+
+### Phase 7: Easy Application Launcher (Low Risk)
+
+**Objective:** Create simple run/stop scripts for easy local execution across platforms.
+
+-   [ ] **7.1: Universal Python Launcher**
+    -   [ ] Create `run.py` with argument parsing and execution modes
+    -   [ ] Implement development mode with auto-restart capabilities
+    -   [ ] Add production mode with optimized settings
+    -   [ ] Include Docker mode for containerized execution
+    -   [ ] Add virtual environment auto-activation
+    -   [ ] Implement dependency validation and installation checks
+
+-   [ ] **7.2: Process Management System**
+    -   [ ] Create `stop.py` for graceful application shutdown
+    -   [ ] Implement process discovery and PID tracking
+    -   [ ] Add resource cleanup and temporary file management
+    -   [ ] Include Docker container management for stop operations
+    -   [ ] Add health check and status reporting features
+
+-   [ ] **7.3: Platform-Specific Wrappers**
+    -   [ ] Create `run.bat` for Windows with error handling
+    -   [ ] Create `run.sh` for Unix/Linux systems
+    -   [ ] Create `stop.bat` / `stop.sh` for graceful shutdown
+    -   [ ] Add port conflict detection and resolution
+    -   [ ] Implement cross-platform compatibility testing
+
+**Technical Requirements:**
+- **Files to Create:** `run.py`, `stop.py`, `run.bat`, `run.sh`, `stop.bat`, `stop.sh`
+- **Dependencies:** No new external dependencies required
+- **Integration:** Leverages existing application structure without modifications
+- **Effort Estimate:** 2-3 hours
+- **Risk Level:** Low (no existing code changes)
+
+### Phase 8: Advanced Prompt Customization (Medium Risk)
+
+**Objective:** Enable users to add custom tweaking instructions to generated posts.
+
+-   [ ] **8.1: UI Enhancement**
+    -   [ ] Extend `show_advanced_options()` function in `app.py`
+    -   [ ] Add "Additional Instructions" text area with placeholder examples
+    -   [ ] Implement input validation for custom instructions
+    -   [ ] Add contextual help text for feature guidance
+    -   [ ] Integrate with existing session state management
+
+-   [ ] **8.2: Prompt System Enhancement**
+    -   [ ] Modify `build_master_prompt()` in `services/llm_service.py`
+    -   [ ] Create custom instruction integration section in prompt template
+    -   [ ] Add validation to prevent conflicting instructions
+    -   [ ] Implement instruction sanitization and safety checks
+    -   [ ] Test prompt quality with various custom instruction types
+
+-   [ ] **8.3: Workflow Integration**
+    -   [ ] Extend `advanced_settings` dictionary structure
+    -   [ ] Update `generate_posts_workflow()` to pass custom instructions
+    -   [ ] Add custom instruction logging for debugging
+    -   [ ] Implement backward compatibility with existing workflows
+    -   [ ] Create comprehensive test cases for custom instruction scenarios
+
+**Technical Requirements:**
+- **Files to Modify:** `app.py` (lines 243-296), `services/llm_service.py` (build_master_prompt function)
+- **Dependencies:** No new external dependencies
+- **Integration:** Extends existing advanced options pattern
+- **Effort Estimate:** 4-5 hours
+- **Risk Level:** Medium (UI and prompt system modifications)
+
+### Phase 9: Dynamic Model Selection (Higher Risk)
+
+**Objective:** Implement real-time model discovery and selection from LLM providers.
+
+-   [ ] **9.1: Model Discovery Service**
+    -   [ ] Create `services/model_discovery.py` with API integration
+    -   [ ] Implement OpenAI models endpoint (`/v1/models`) integration
+    -   [ ] Create Anthropic model discovery with trial-and-error fallback
+    -   [ ] Add Google Gemini model discovery via their API
+    -   [ ] Implement session-based model caching with expiration
+    -   [ ] Add error handling and graceful fallback mechanisms
+
+-   [ ] **9.2: Configuration Updates**
+    -   [ ] Extend `config.py` with provider model endpoint configuration
+    -   [ ] Add model capability definitions (parameters, limits)
+    -   [ ] Create fallback model lists for each provider
+    -   [ ] Implement model discovery method configuration
+    -   [ ] Add model parameter templates (temperature, max_tokens)
+
+-   [ ] **9.3: UI Model Selection**
+    -   [ ] Add model selection dropdown in Step 1 (after provider selection)
+    -   [ ] Implement real-time model fetching with loading indicators
+    -   [ ] Create model description and capability display
+    -   [ ] Add manual model entry option for newest models
+    -   [ ] Integrate with existing API key validation workflow
+
+-   [ ] **9.4: LLM Service Integration**
+    -   [ ] Modify `call_llm()` function to accept model parameter
+    -   [ ] Update `_call_openai()`, `_call_gemini()`, `_call_anthropic()` functions
+    -   [ ] Implement model-specific parameter handling
+    -   [ ] Add model-specific error handling and validation
+    -   [ ] Create comprehensive testing for all provider-model combinations
+
+**Technical Requirements:**
+- **Files to Create:** `services/model_discovery.py`
+- **Files to Modify:** `config.py`, `services/llm_service.py`, `app.py`
+- **Dependencies:** No new external dependencies (uses existing provider SDKs)
+- **Integration:** Extends existing LLM service architecture
+- **Effort Estimate:** 6-8 hours
+- **Risk Level:** Higher (multiple API integrations, caching, provider compatibility)
+
+### Implementation Strategy
+
+#### **Development Order (Recommended)**
+1. **Phase 7** (Easy Launcher) - Independent, low-risk, immediate value
+2. **Phase 8** (Custom Instructions) - Builds on existing UI patterns
+3. **Phase 9** (Model Selection) - Most complex, requires other phases as foundation
+
+#### **Risk Mitigation**
+- **Backward Compatibility:** All enhancements are additive with sensible defaults
+- **Graceful Degradation:** Features work with fallbacks if APIs fail
+- **Comprehensive Testing:** Each phase includes dedicated test coverage
+- **Documentation Updates:** User guides updated with new feature documentation
+
+#### **Quality Assurance**
+- **Code Review:** All changes follow existing code patterns and architecture
+- **Testing Requirements:** Maintain 90%+ test coverage on new functionality
+- **Documentation:** Update user guides and API reference for new features
+- **Performance Testing:** Ensure new features don't impact existing performance
+
+#### **Success Criteria**
+- **Phase 7:** Users can run/stop application with single command on any platform
+- **Phase 8:** Users can add custom instructions that improve generated post quality
+- **Phase 9:** Users can select from latest available models including future releases
+
+This enhancement plan maintains the production-ready quality while adding significant value through improved usability, customization, and future-proofing capabilities.

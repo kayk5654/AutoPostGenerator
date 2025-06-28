@@ -86,3 +86,113 @@ This package contains generic, reusable helper functions that are not part of th
         3.  Generates a dynamic filename based on the platform and current date (e.g., `posts_for_X_20250625.csv`).
         4.  Converts the DataFrame to a CSV formatted string.
         5.  Returns the CSV string and the filename, ready for Streamlit's download button.
+
+## 3. Enhanced Architecture Components (Post-MVP)
+
+### Application Launcher System
+
+#### `run.py` (Main Launcher)
+* **Responsibility**: Universal application launcher with multiple execution modes.
+* **Key Functions**:
+    * `main()`: Primary entry point with argument parsing and mode selection.
+    * `run_development()`: Development mode with auto-restart and debug logging.
+    * `run_production()`: Production mode with optimized settings and monitoring.
+    * `run_docker()`: Docker containerized execution with health checks.
+    * `validate_environment()`: Dependency validation and virtual environment setup.
+    * `check_port_availability()`: Port conflict detection and resolution.
+
+#### `stop.py` (Process Management)
+* **Responsibility**: Graceful application shutdown and process management.
+* **Key Functions**:
+    * `stop_application()`: Find and terminate running Streamlit processes.
+    * `cleanup_resources()`: Clean temporary files and release resources.
+    * `stop_docker_containers()`: Stop Docker containers if running in container mode.
+
+#### Platform-Specific Wrappers
+* **`run.bat` / `run.sh`**: Simple platform-specific wrappers for the Python launcher.
+* **`stop.bat` / `stop.sh`**: Platform-specific stop scripts with error handling.
+
+### Enhanced LLM Service Architecture
+
+#### `services/model_discovery.py` (New Component)
+* **Responsibility**: Dynamic model discovery and caching for all LLM providers.
+* **Key Functions**:
+    * `fetch_available_models(provider: str, api_key: str) -> List[str]`:
+        1. Queries provider APIs for current available models.
+        2. Handles provider-specific endpoints and authentication.
+        3. Returns list of model names with fallback for API failures.
+    * `cache_models(provider: str, models: List[str])`: Session-based model caching.
+    * `get_cached_models(provider: str) -> List[str]`: Retrieve cached models with expiration.
+    * `discover_model_capabilities(provider: str, model: str) -> Dict`: Get model-specific parameters.
+
+#### Enhanced `services/llm_service.py`
+* **Extended Functionality**:
+    * `build_master_prompt()`: Enhanced to integrate custom user instructions.
+    * `call_llm()`: Modified to accept dynamic model selection parameter.
+    * Provider-specific functions updated to support multiple models per provider.
+    * Model parameter customization (temperature, max_tokens) based on model capabilities.
+
+### Enhanced UI Components
+
+#### Extended `app.py` Features
+* **Advanced Options Enhancement**:
+    * Additional instructions text area integrated into existing `show_advanced_options()` function.
+    * Model selection dropdown that updates based on provider selection.
+    * Real-time model availability checking with loading indicators.
+* **Session State Extensions**:
+    * `selected_model`: Current model selection per provider.
+    * `available_models`: Cached model lists for each provider.
+    * `custom_instructions`: User-provided additional prompt instructions.
+
+### Configuration Updates
+
+#### Enhanced `config.py`
+* **Model Discovery Configuration**:
+    ```python
+    PROVIDER_MODEL_ENDPOINTS = {
+        "OpenAI": {
+            "endpoint": "/v1/models",
+            "auth_header": "Authorization: Bearer",
+            "fallback_models": ["gpt-3.5-turbo", "gpt-4"]
+        },
+        "Anthropic": {
+            "endpoint": None,  # No public models endpoint
+            "fallback_models": ["claude-3-sonnet", "claude-3-opus", "claude-3-haiku"],
+            "discovery_method": "trial_and_error"
+        },
+        "Google Gemini": {
+            "endpoint": "models",
+            "fallback_models": ["gemini-pro", "gemini-pro-vision"]
+        }
+    }
+    ```
+
+### Data Flow Enhancements
+
+#### Model Selection Workflow
+1. User selects LLM provider
+2. `model_discovery.py` fetches available models using provider API
+3. Model dropdown populates with current options
+4. User selects specific model
+5. Model selection passes to `llm_service.py` for generation
+
+#### Custom Instructions Integration
+1. User enters additional instructions in advanced options
+2. Instructions are validated and stored in session state
+3. `build_master_prompt()` integrates custom instructions into final prompt
+4. Enhanced prompt sent to selected model via `call_llm()`
+
+### Error Handling and Validation
+
+#### Enhanced Error Management
+* **Model Discovery Errors**: Graceful fallback to cached or default models if API discovery fails.
+* **Custom Instruction Validation**: Prevent conflicting or potentially harmful custom instructions.
+* **Process Management**: Robust error handling for launcher and stop scripts across platforms.
+
+### Backward Compatibility
+
+#### Compatibility Strategy
+* All existing functionality remains unchanged for current users.
+* New features are additive and optional with sensible defaults.
+* Existing `advanced_settings` structure preserved and extended.
+* API interfaces maintain backward compatibility with fallback mechanisms.

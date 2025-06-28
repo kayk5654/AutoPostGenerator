@@ -60,3 +60,33 @@ The application will be a single-page Streamlit interface. The user will perform
 * **Columns:**
     * `post_text`: The final, user-edited version of the post.
     * `generation_timestamp`: The date and time the CSV was exported.
+
+### **6. Enhanced Features (Post-MVP)**
+
+#### **6.1: Easy Application Launcher**
+* **Cross-Platform Run Scripts:** Simple execution scripts for Windows (`.bat`) and Unix (`.sh`) systems.
+* **Python Launcher:** Universal `run.py` script with multiple execution modes:
+    * Development mode with auto-restart
+    * Production mode with optimized settings
+    * Docker mode for containerized deployment
+* **Process Management:** Automated process tracking, health checks, and graceful shutdown capabilities.
+* **Dependency Management:** Automatic virtual environment activation and dependency validation.
+
+#### **6.2: Advanced Prompt Customization**
+* **Additional Instructions Field:** Text area in advanced options allowing users to specify custom tweaks:
+    * Language preferences (e.g., "Write in English")
+    * Content restrictions (e.g., "Don't mention pricing")
+    * Style modifications (e.g., "Use more questions", "Keep it casual")
+    * Platform-specific adjustments
+* **Integration:** Custom instructions are seamlessly integrated into the master prompt building process.
+* **Validation:** Input validation ensures custom instructions don't conflict with existing prompt structure.
+
+#### **6.3: Dynamic Model Selection**
+* **Real-Time Model Discovery:** Automatic fetching of available models from each LLM provider:
+    * **OpenAI:** Uses `/v1/models` API endpoint to get current model list
+    * **Anthropic:** Supports latest models (Claude Opus 4, future releases) with fallback discovery
+    * **Google Gemini:** Uses Google's model discovery API for available models
+* **UI Integration:** Model selection dropdown that updates based on selected provider and API key validation.
+* **Model Caching:** Session-based caching of available models to reduce API calls.
+* **Future-Proof Design:** Architecture supports new models automatically without code updates.
+* **Model Parameters:** Advanced users can adjust model-specific parameters (temperature, max_tokens, etc.).
