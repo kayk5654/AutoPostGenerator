@@ -390,7 +390,6 @@ class StreamlitConfigManager:
             'server.port': config.get('port'),
             'server.address': config.get('host'),
             'server.headless': config.get('headless'),
-            'server.maxUploadSize': config.get('max_upload_size'),
             'browser.gatherUsageStats': False
         }
         
@@ -553,15 +552,15 @@ class UniversalLauncher:
             else:
                 print("⚠️  No virtual environment found")
         
-        # Generate and write Streamlit config
-        streamlit_config = StreamlitConfigManager.generate_config('development', self.config)
-        StreamlitConfigManager.write_config_file(streamlit_config)
+        # Skip custom Streamlit config to avoid compatibility issues
+        # Use command-line arguments instead
         
         # Build Streamlit command
         cmd = [
             sys.executable, '-m', 'streamlit', 'run', 'app.py',
             '--server.port', str(self.config.get('port')),
-            '--server.address', self.config.get('host')
+            '--server.address', self.config.get('host'),
+            '--browser.gatherUsageStats', 'false'
         ]
         
         if not self.config.get('browser_auto_open'):
@@ -616,16 +615,16 @@ class UniversalLauncher:
         # Setup production environment
         os.environ['STREAMLIT_ENV'] = 'production'
         
-        # Generate and write Streamlit config
-        streamlit_config = StreamlitConfigManager.generate_config('production', self.config)
-        StreamlitConfigManager.write_config_file(streamlit_config)
+        # Skip custom Streamlit config to avoid compatibility issues
+        # Use command-line arguments instead
         
         # Build Streamlit command
         cmd = [
             sys.executable, '-m', 'streamlit', 'run', 'app.py',
             '--server.port', str(self.config.get('port')),
             '--server.address', self.config.get('host'),
-            '--server.headless', 'true'
+            '--server.headless', 'true',
+            '--browser.gatherUsageStats', 'false'
         ]
         
         try:
@@ -676,9 +675,8 @@ class UniversalLauncher:
             print("❌ Docker/Podman not found. Please install Docker to use Docker mode.")
             return 1
         
-        # Generate Docker Streamlit config
-        streamlit_config = StreamlitConfigManager.generate_config('docker', self.config)
-        StreamlitConfigManager.write_config_file(streamlit_config)
+        # Skip custom Streamlit config to avoid compatibility issues
+        # Use command-line arguments instead
         
         # Check for docker-compose.yml
         docker_compose_file = PROJECT_ROOT / 'docker-compose.yml'
