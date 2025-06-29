@@ -52,7 +52,7 @@ def build_master_prompt(
         # Remove potentially dangerous patterns
         dangerous_patterns = [
             '<script>', '</script>', 'javascript:', 'data:', 'vbscript:',
-            'system:', 'ignore previous', 'ignore all', 'override',
+            'alert(', 'system:', 'ignore previous', 'ignore all', 'override',
             '<iframe>', '</iframe>', '<object>', '</object>'
         ]
         
