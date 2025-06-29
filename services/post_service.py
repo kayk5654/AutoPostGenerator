@@ -295,8 +295,8 @@ def _validate_workflow_inputs(
         if not isinstance(advanced_settings, dict):
             errors.append("advanced_settings must be a dictionary")
         else:
-            # Validate known advanced settings
-            valid_keys = {'creativity_level', 'include_hashtags', 'include_emojis', 'content_tone', 'call_to_action', 'avoid_controversy'}
+            # Validate known advanced settings (Phase 8: Added custom_instructions)
+            valid_keys = {'creativity_level', 'include_hashtags', 'include_emojis', 'content_tone', 'call_to_action', 'avoid_controversy', 'custom_instructions'}
             unknown_keys = set(advanced_settings.keys()) - valid_keys
             if unknown_keys:
                 errors.append(f"Unknown advanced settings: {', '.join(unknown_keys)}")
