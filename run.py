@@ -391,7 +391,6 @@ class StreamlitConfigManager:
             'server.address': config.get('host'),
             'server.headless': config.get('headless'),
             'server.maxUploadSize': config.get('max_upload_size'),
-            'server.maxMessageSize': 50,
             'browser.gatherUsageStats': False
         }
         
@@ -436,6 +435,8 @@ class StreamlitConfigManager:
                         value_str = str(value).lower()
                     elif isinstance(value, str):
                         value_str = f'"{value}"'
+                    elif isinstance(value, (int, float)):
+                        value_str = str(value)
                     else:
                         value_str = str(value)
                     
