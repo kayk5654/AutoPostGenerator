@@ -392,22 +392,19 @@ class StreamlitConfigManager:
             'server.headless': config.get('headless'),
             'server.maxUploadSize': config.get('max_upload_size'),
             'server.maxMessageSize': 50,
-            'browser.gatherUsageStats': False,
-            'global.disableWatchdogWarning': True
+            'browser.gatherUsageStats': False
         }
         
         if mode == 'development':
             base_config.update({
                 'server.runOnSave': config.get('auto_restart', True),
                 'server.fileWatcherType': 'auto' if config.get('file_watching') else 'none',
-                'global.developmentMode': True,
                 'logger.level': config.get('log_level', 'DEBUG').lower()
             })
         elif mode == 'production':
             base_config.update({
                 'server.runOnSave': False,
                 'server.fileWatcherType': 'none',
-                'global.developmentMode': False,
                 'logger.level': 'info',
                 'server.headless': True
             })

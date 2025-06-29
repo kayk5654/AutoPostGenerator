@@ -306,11 +306,44 @@ echo %YELLOW%Note:%NC% This terminal session has the virtual environment activat
 echo For future sessions, the launcher will auto-activate it for you.
 echo.
 
-REM Create a simple usage reminder file
-echo REM Auto Post Generator - Quick Start > quick_start.bat
+REM Create a comprehensive quick start file
+echo @echo off > quick_start.bat
+echo REM Auto Post Generator - Quick Start >> quick_start.bat
 echo REM Run this to start the application in development mode >> quick_start.bat
-echo @echo off >> quick_start.bat
-echo call run.bat >> quick_start.bat
+echo. >> quick_start.bat
+echo setlocal EnableDelayedExpansion >> quick_start.bat
+echo echo. >> quick_start.bat
+echo echo ================================================================ >> quick_start.bat
+echo echo  Auto Post Generator - Quick Start >> quick_start.bat
+echo echo ================================================================ >> quick_start.bat
+echo echo. >> quick_start.bat
+echo. >> quick_start.bat
+echo REM Get script directory and set as working directory >> quick_start.bat
+echo set "SCRIPT_DIR=%%~dp0" >> quick_start.bat
+echo cd /d "%%SCRIPT_DIR%%" >> quick_start.bat
+echo. >> quick_start.bat
+echo echo 🚀 Starting Auto Post Generator in Development Mode... >> quick_start.bat
+echo echo. >> quick_start.bat
+echo echo 📡 Launching application... >> quick_start.bat
+echo echo 💡 The application will open in your browser automatically >> quick_start.bat
+echo echo 🛑 Press Ctrl+C in this window to stop the application >> quick_start.bat
+echo echo. >> quick_start.bat
+echo. >> quick_start.bat
+echo call run.bat dev >> quick_start.bat
+echo. >> quick_start.bat
+echo if errorlevel 1 ^( >> quick_start.bat
+echo     echo. >> quick_start.bat
+echo     echo ❌ Application failed to start >> quick_start.bat
+echo     echo Please check the error messages above >> quick_start.bat
+echo     echo. >> quick_start.bat
+echo     pause >> quick_start.bat
+echo     exit /b 1 >> quick_start.bat
+echo ^) >> quick_start.bat
+echo. >> quick_start.bat
+echo echo. >> quick_start.bat
+echo echo ✅ Application stopped successfully >> quick_start.bat
+echo pause >> quick_start.bat
+echo endlocal >> quick_start.bat
 
 echo ✅ Created quick_start.bat for easy access
 echo.
