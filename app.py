@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
 import re
+import asyncio
 from datetime import datetime
 from config import LLM_PROVIDERS, TARGET_PLATFORMS, SUPPORTED_TEXT_FORMATS, SUPPORTED_HISTORY_FORMATS
 from services.post_service import generate_posts_workflow
+from services.model_discovery import get_model_discovery_service, ModelInfo
 from utils.data_exporter import create_csv_export, validate_export_data, get_export_statistics
 from utils.logging_config import setup_logging, get_logger
 
@@ -44,6 +46,24 @@ def initialize_session_state():
     # Phase 8.1: Custom instructions session state
     if 'custom_instructions' not in st.session_state:
         st.session_state.custom_instructions = ''
+    
+    # Phase 9.3: Model selection session state
+    if 'available_models' not in st.session_state:
+        st.session_state.available_models = {}
+    if 'selected_model' not in st.session_state:
+        st.session_state.selected_model = None
+    if 'model_loading' not in st.session_state:
+        st.session_state.model_loading = False
+    if 'model_fetch_error' not in st.session_state:
+        st.session_state.model_fetch_error = None
+    if 'manual_model_entry' not in st.session_state:
+        st.session_state.manual_model_entry = False
+    if 'custom_model_name' not in st.session_state:
+        st.session_state.custom_model_name = ''
+    if 'model_capabilities' not in st.session_state:
+        st.session_state.model_capabilities = {}
+    if 'last_provider_for_models' not in st.session_state:
+        st.session_state.last_provider_for_models = None
 
 def reset_generation_state():
     """Reset state for new post generation."""
@@ -131,6 +151,239 @@ def sanitize_custom_instructions(instructions):
 def reset_custom_instructions():
     """Reset custom instructions to empty state."""
     st.session_state.custom_instructions = ''
+
+
+# Phase 9.3: Model Selection Helper Functions
+
+def get_provider_internal_name(display_name):
+    """Convert display provider name to internal name."""
+    mapping = {
+        "OpenAI": "openai",
+        "Google Gemini": "google", 
+        "Anthropic": "anthropic"
+    }
+    return mapping.get(display_name, display_name.lower())
+
+
+async def fetch_models_for_provider(provider_display_name, api_key):
+    """
+    Fetch available models for a provider.
+    
+    Args:
+        provider_display_name (str): Display name of the provider
+        api_key (str): API key for the provider
+        
+    Returns:
+        List[ModelInfo]: List of available models
+    """
+    provider_internal = get_provider_internal_name(provider_display_name)
+    
+    try:
+        discovery_service = get_model_discovery_service()
+        models = await discovery_service.fetch_available_models(provider_internal, api_key)
+        return models
+    except Exception as e:
+        logger.error(f"Failed to fetch models for {provider_display_name}: {str(e)}")
+        raise
+
+
+def display_model_capabilities(model_info: ModelInfo):
+    """Display model capabilities in a formatted way."""
+    if not model_info:
+        return
+    
+    with st.expander(f"📊 {model_info.name} Details", expanded=False):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Core Specifications:**")
+            if model_info.context_window:
+                st.write(f"• Context Window: {model_info.context_window:,} tokens")
+            if model_info.max_tokens:
+                st.write(f"• Max Output: {model_info.max_tokens:,} tokens")
+            if model_info.temperature_range:
+                st.write(f"• Temperature Range: {model_info.temperature_range[0]} - {model_info.temperature_range[1]}")
+        
+        with col2:
+            st.markdown("**Capabilities:**")
+            capabilities = []
+            if model_info.supports_vision:
+                capabilities.append("🔍 Vision Support")
+            if model_info.supports_functions:
+                capabilities.append("⚙️ Function Calling")
+            if model_info.supports_json_mode:
+                capabilities.append("📋 JSON Mode")
+            
+            if capabilities:
+                for cap in capabilities:
+                    st.write(f"• {cap}")
+            else:
+                st.write("• Standard text generation")
+        
+        if model_info.pricing:
+            st.markdown("**Pricing:**")
+            input_cost = model_info.pricing.get('input_per_1k', 0)
+            output_cost = model_info.pricing.get('output_per_1k', 0)
+            st.write(f"• Input: ${input_cost:.4f}/1K tokens")
+            st.write(f"• Output: ${output_cost:.4f}/1K tokens")
+        
+        if model_info.description:
+            st.markdown("**Description:**")
+            st.write(model_info.description)
+
+
+def show_model_selection_ui(provider, api_key):
+    """
+    Display the model selection UI for Phase 9.3.
+    
+    Args:
+        provider (str): Selected provider display name
+        api_key (str): User's API key
+        
+    Returns:
+        str: Selected model ID or None
+    """
+    provider_internal = get_provider_internal_name(provider)
+    
+    # Check if we need to fetch models for this provider
+    should_fetch = (
+        provider_internal not in st.session_state.available_models or
+        st.session_state.last_provider_for_models != provider or
+        st.session_state.model_fetch_error is not None
+    )
+    
+    if should_fetch and api_key and not st.session_state.model_loading:
+        # Only fetch if we have an API key and aren't already loading
+        st.session_state.model_loading = True
+        st.session_state.model_fetch_error = None
+        
+        # Create a placeholder for the loading state
+        loading_placeholder = st.empty()
+        
+        try:
+            with loading_placeholder:
+                with st.spinner(f"🔍 Discovering available {provider} models..."):
+                    # Run async function in sync context
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    models = loop.run_until_complete(fetch_models_for_provider(provider, api_key))
+                    loop.close()
+                    
+                    # Store models in session state
+                    st.session_state.available_models[provider_internal] = models
+                    st.session_state.last_provider_for_models = provider
+                    
+                    if models:
+                        st.success(f"✅ Found {len(models)} available models!")
+                    else:
+                        st.warning("⚠️ No models found, using fallback options")
+            
+            # Clear loading placeholder
+            loading_placeholder.empty()
+            
+        except Exception as e:
+            loading_placeholder.empty()
+            st.session_state.model_fetch_error = str(e)
+            st.error(f"❌ Failed to fetch models: {str(e)}")
+            st.info("💡 You can still use manual model entry below")
+        
+        finally:
+            st.session_state.model_loading = False
+    
+    # Show model selection UI
+    st.markdown("**Select Model:**")
+    
+    # Get available models for this provider
+    available_models = st.session_state.available_models.get(provider_internal, [])
+    
+    # Model selection columns
+    model_col1, model_col2 = st.columns([3, 1])
+    
+    with model_col1:
+        if available_models:
+            # Create model options with descriptions
+            model_options = [""] + [f"{model.name} ({model.id})" for model in available_models]
+            model_names = ["Select a model..."] + [model.name for model in available_models]
+            
+            selected_option = st.selectbox(
+                "Available Models",
+                model_options,
+                format_func=lambda x: model_names[model_options.index(x)] if x in model_options else x,
+                key="model_selectbox",
+                help="Choose from dynamically discovered models for this provider"
+            )
+            
+            # Extract model ID from selection
+            if selected_option and selected_option != "":
+                # Extract model ID from "Name (model-id)" format
+                selected_model_id = selected_option.split("(")[-1].rstrip(")")
+                st.session_state.selected_model = selected_model_id
+                
+                # Find and store model info
+                selected_model_info = next((m for m in available_models if m.id == selected_model_id), None)
+                if selected_model_info:
+                    st.session_state.model_capabilities[selected_model_id] = selected_model_info
+            else:
+                st.session_state.selected_model = None
+        else:
+            if not api_key:
+                st.info("🔑 Enter your API key above to discover available models")
+            elif st.session_state.model_loading:
+                st.info("🔍 Loading models...")
+            elif st.session_state.model_fetch_error:
+                st.warning("⚠️ Unable to fetch models. Use manual entry below.")
+            else:
+                st.info("💡 No models available. Use manual entry below.")
+    
+    with model_col2:
+        # Refresh button
+        if st.button("🔄 Refresh", help="Refresh available models", key="refresh_models"):
+            if provider_internal in st.session_state.available_models:
+                del st.session_state.available_models[provider_internal]
+            st.session_state.model_fetch_error = None
+            st.rerun()
+        
+        # Manual entry toggle
+        manual_entry = st.checkbox(
+            "Manual Entry",
+            value=st.session_state.manual_model_entry,
+            help="Enter model name manually for newest models",
+            key="manual_model_toggle"
+        )
+        st.session_state.manual_model_entry = manual_entry
+    
+    # Manual model entry
+    if st.session_state.manual_model_entry:
+        st.markdown("**Manual Model Entry:**")
+        custom_model = st.text_input(
+            "Model Name",
+            value=st.session_state.custom_model_name,
+            placeholder="e.g., gpt-4o-2024-12-31, claude-3-5-sonnet-20241022",
+            help="Enter the exact model name/ID you want to use",
+            key="custom_model_input"
+        )
+        
+        if custom_model != st.session_state.custom_model_name:
+            st.session_state.custom_model_name = custom_model
+            if custom_model:
+                st.session_state.selected_model = custom_model
+                st.info(f"✅ Using manual model: {custom_model}")
+            else:
+                st.session_state.selected_model = None
+    
+    # Display selected model capabilities
+    if st.session_state.selected_model and st.session_state.selected_model in st.session_state.model_capabilities:
+        model_info = st.session_state.model_capabilities[st.session_state.selected_model]
+        display_model_capabilities(model_info)
+    
+    # Show model validation status
+    if st.session_state.selected_model:
+        if st.session_state.manual_model_entry:
+            st.info(f"🎯 Selected Model: {st.session_state.selected_model} (Manual Entry)")
+        else:
+            st.success(f"🎯 Selected Model: {st.session_state.selected_model}")
+    
+    return st.session_state.selected_model
 
 
 # Phase 6.1: User Experience Enhancement Functions
@@ -506,6 +759,20 @@ with col2:
         else:
             st.error(message)
 
+# Phase 9.3: Model Selection Interface
+if selected_provider and api_key:
+    # API key validation passed, show model selection
+    api_valid, _ = validate_api_key_format(api_key, selected_provider)
+    if api_valid:
+        st.markdown("---")
+        st.markdown("**🎯 Model Selection** *(Phase 9 Feature)*")
+        
+        # Show model selection UI
+        selected_model = show_model_selection_ui(selected_provider, api_key)
+        
+        # Store selected model for generation workflow
+        st.session_state.current_selected_model = selected_model
+
 st.markdown("---")
 st.subheader("Step 2: Provide Inputs")
 
@@ -695,7 +962,8 @@ if st.button(
                         api_key=api_key,
                         platform=target_platform,
                         count=post_count,
-                        advanced_settings=advanced_settings
+                        advanced_settings=advanced_settings,
+                        selected_model=st.session_state.current_selected_model
                     )
                     logger.info(f"Workflow completed successfully: generated {len(generated_posts)} posts")
             
