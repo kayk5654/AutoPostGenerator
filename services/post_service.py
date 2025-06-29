@@ -29,7 +29,8 @@ def generate_posts_workflow(
     api_key: str,
     platform: str,
     count: int,
-    advanced_settings: Optional[Dict[str, Any]] = None
+    advanced_settings: Optional[Dict[str, Any]] = None,
+    selected_model: Optional[str] = None
 ) -> List[str]:
     """
     Main orchestration function for post generation workflow.
@@ -53,6 +54,7 @@ def generate_posts_workflow(
             - call_to_action: bool
             - avoid_controversy: bool
             - custom_instructions: str (Phase 8 feature) - User-provided custom instructions
+        selected_model (str, optional): Phase 9 feature - Specific model to use for generation
         
     Returns:
         List[str]: List of generated social media posts
@@ -156,9 +158,9 @@ def generate_posts_workflow(
             raise PromptBuildingError(f"Failed to build generation prompt: {str(e)}") from e
         
         # Step 5: Call LLM to generate content with retry logic
-        logger.info(f"[{workflow_id}] Step 5: Calling {provider} API")
+        logger.info(f"[{workflow_id}] Step 5: Calling {provider} API" + (f" with model {selected_model}" if selected_model else ""))
         try:
-            response = llm_service.call_llm(provider, api_key, prompt)
+            response = llm_service.call_llm(provider, api_key, prompt, model=selected_model)
             logger.info(f"[{workflow_id}] Received response from {provider}")
         except Exception as e:
             logger.error(f"[{workflow_id}] LLM API call failed: {str(e)}")

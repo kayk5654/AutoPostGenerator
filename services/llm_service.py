@@ -208,14 +208,18 @@ Continue this pattern for all {count} posts. Each post should be complete and re
     return prompt
 
 
-def call_llm(provider: str, api_key: str, prompt: str) -> str:
+def call_llm(provider: str, api_key: str, prompt: str, model: str = None, **kwargs) -> str:
     """
-    Factory function to call appropriate LLM provider.
+    Factory function to call appropriate LLM provider with dynamic model selection.
+    
+    Phase 9.4: Enhanced to support dynamic model selection and parameters.
     
     Args:
         provider: LLM provider name
         api_key: API key for authentication
         prompt: Formatted prompt string
+        model: Optional model name (Phase 9 feature)
+        **kwargs: Additional model parameters like temperature, max_tokens, etc.
         
     Returns:
         str: Raw response from LLM
@@ -228,13 +232,22 @@ def call_llm(provider: str, api_key: str, prompt: str) -> str:
     if not prompt:
         raise ValueError("Prompt cannot be empty")
     
-    # Route to appropriate provider
-    if provider == "Google Gemini":
-        return _call_gemini(api_key, prompt)
-    elif provider == "OpenAI":
-        return _call_openai(api_key, prompt)
-    elif provider == "Anthropic":
-        return _call_anthropic(api_key, prompt)
+    # Get internal provider name
+    provider_mapping = {
+        "Google Gemini": "google",
+        "OpenAI": "openai", 
+        "Anthropic": "anthropic"
+    }
+    
+    internal_provider = provider_mapping.get(provider, provider.lower())
+    
+    # Route to appropriate provider with model parameter
+    if provider == "Google Gemini" or internal_provider == "google":
+        return _call_gemini(api_key, prompt, model=model, **kwargs)
+    elif provider == "OpenAI" or internal_provider == "openai":
+        return _call_openai(api_key, prompt, model=model, **kwargs)
+    elif provider == "Anthropic" or internal_provider == "anthropic":
+        return _call_anthropic(api_key, prompt, model=model, **kwargs)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
@@ -357,8 +370,18 @@ except ImportError:
     anthropic = None
 
 
-def _call_gemini(api_key: str, prompt: str) -> str:
-    """Call Google Gemini API"""
+def _call_gemini(api_key: str, prompt: str, model: str = None, **kwargs) -> str:
+    """
+    Call Google Gemini API with dynamic model selection.
+    
+    Phase 9.4: Enhanced to support dynamic model selection and parameters.
+    
+    Args:
+        api_key: Google API key
+        prompt: Formatted prompt string
+        model: Optional model name (defaults to gemini-pro)
+        **kwargs: Additional parameters like temperature, max_tokens, etc.
+    """
     try:
         if genai is None:
             raise ImportError("google-generativeai not available")
@@ -366,11 +389,44 @@ def _call_gemini(api_key: str, prompt: str) -> str:
         # Configure the API key
         genai.configure(api_key=api_key)
         
-        # Initialize the model
-        model = genai.GenerativeModel('gemini-pro')
+        # Determine model to use
+        model_name = model if model else 'gemini-pro'
+        
+        # Handle model name variations (remove 'models/' prefix if present)
+        if model_name.startswith('models/'):
+            model_name = model_name[7:]
+        
+        # Validate and adjust parameters for Gemini
+        generation_config = {}
+        
+        # Map common parameters to Gemini format
+        if 'temperature' in kwargs:
+            generation_config['temperature'] = max(0.0, min(2.0, float(kwargs['temperature'])))
+        
+        if 'max_tokens' in kwargs:
+            # Gemini uses maxOutputTokens
+            generation_config['max_output_tokens'] = min(8192, max(1, int(kwargs['max_tokens'])))
+        elif 'maxOutputTokens' in kwargs:
+            generation_config['max_output_tokens'] = min(8192, max(1, int(kwargs['maxOutputTokens'])))
+        
+        if 'top_p' in kwargs:
+            generation_config['top_p'] = max(0.0, min(1.0, float(kwargs['top_p'])))
+        elif 'topP' in kwargs:
+            generation_config['top_p'] = max(0.0, min(1.0, float(kwargs['topP'])))
+        
+        if 'top_k' in kwargs:
+            generation_config['top_k'] = max(1, int(kwargs['top_k']))
+        elif 'topK' in kwargs:
+            generation_config['top_k'] = max(1, int(kwargs['topK']))
+        
+        # Initialize the model with generation config
+        model_instance = genai.GenerativeModel(
+            model_name=model_name,
+            generation_config=generation_config if generation_config else None
+        )
         
         # Generate content
-        response = model.generate_content(prompt)
+        response = model_instance.generate_content(prompt)
         
         # Return the text response
         return response.text
@@ -383,12 +439,24 @@ def _call_gemini(api_key: str, prompt: str) -> str:
             raise Exception("API quota exceeded or rate limit reached")
         elif "network" in error_msg or "connection" in error_msg:
             raise Exception("Network connection failed")
+        elif "model" in error_msg and "not found" in error_msg:
+            raise Exception(f"Model '{model_name}' not found or not accessible")
         else:
             raise Exception(f"Gemini API error: {str(e)}")
 
 
-def _call_openai(api_key: str, prompt: str) -> str:
-    """Call OpenAI API"""
+def _call_openai(api_key: str, prompt: str, model: str = None, **kwargs) -> str:
+    """
+    Call OpenAI API with dynamic model selection.
+    
+    Phase 9.4: Enhanced to support dynamic model selection and parameters.
+    
+    Args:
+        api_key: OpenAI API key
+        prompt: Formatted prompt string
+        model: Optional model name (defaults to gpt-3.5-turbo)
+        **kwargs: Additional parameters like temperature, max_tokens, etc.
+    """
     try:
         if OpenAI is None:
             raise ImportError("openai not available")
@@ -396,18 +464,49 @@ def _call_openai(api_key: str, prompt: str) -> str:
         # Initialize the client
         client = OpenAI(api_key=api_key)
         
-        # Create chat completion
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
+        # Determine model to use
+        model_name = model if model else "gpt-3.5-turbo"
+        
+        # Prepare chat completion parameters
+        completion_params = {
+            "model": model_name,
+            "messages": [
                 {
                     "role": "user",
                     "content": prompt
                 }
-            ],
-            max_tokens=2000,
-            temperature=0.7
-        )
+            ]
+        }
+        
+        # Add optional parameters with validation
+        if 'temperature' in kwargs:
+            completion_params['temperature'] = max(0.0, min(2.0, float(kwargs['temperature'])))
+        else:
+            completion_params['temperature'] = 0.7  # Default
+        
+        if 'max_tokens' in kwargs:
+            completion_params['max_tokens'] = min(4096, max(1, int(kwargs['max_tokens'])))
+        else:
+            completion_params['max_tokens'] = 2000  # Default
+        
+        if 'top_p' in kwargs:
+            completion_params['top_p'] = max(0.0, min(1.0, float(kwargs['top_p'])))
+        
+        if 'frequency_penalty' in kwargs:
+            completion_params['frequency_penalty'] = max(-2.0, min(2.0, float(kwargs['frequency_penalty'])))
+        
+        if 'presence_penalty' in kwargs:
+            completion_params['presence_penalty'] = max(-2.0, min(2.0, float(kwargs['presence_penalty'])))
+        
+        if 'stop' in kwargs and kwargs['stop']:
+            completion_params['stop'] = kwargs['stop']
+        
+        # Handle response format for JSON mode
+        if 'response_format' in kwargs:
+            completion_params['response_format'] = kwargs['response_format']
+        
+        # Create chat completion
+        response = client.chat.completions.create(**completion_params)
         
         # Return the response content
         return response.choices[0].message.content
@@ -420,12 +519,24 @@ def _call_openai(api_key: str, prompt: str) -> str:
             raise Exception("API quota exceeded or rate limit reached")
         elif "network" in error_msg or "connection" in error_msg:
             raise Exception("Network connection failed")
+        elif "model" in error_msg and ("not found" in error_msg or "does not exist" in error_msg):
+            raise Exception(f"Model '{model_name}' not found or not accessible")
         else:
             raise Exception(f"OpenAI API error: {str(e)}")
 
 
-def _call_anthropic(api_key: str, prompt: str) -> str:
-    """Call Anthropic API"""
+def _call_anthropic(api_key: str, prompt: str, model: str = None, **kwargs) -> str:
+    """
+    Call Anthropic API with dynamic model selection.
+    
+    Phase 9.4: Enhanced to support dynamic model selection and parameters.
+    
+    Args:
+        api_key: Anthropic API key
+        prompt: Formatted prompt string
+        model: Optional model name (defaults to claude-3-sonnet-20240229)
+        **kwargs: Additional parameters like temperature, max_tokens, etc.
+    """
     try:
         if anthropic is None:
             raise ImportError("anthropic not available")
@@ -433,18 +544,42 @@ def _call_anthropic(api_key: str, prompt: str) -> str:
         # Initialize the client
         client = anthropic.Anthropic(api_key=api_key)
         
-        # Create message
-        response = client.messages.create(
-            model="claude-3-sonnet-20240229",
-            max_tokens=2000,
-            temperature=0.7,
-            messages=[
+        # Determine model to use
+        model_name = model if model else "claude-3-sonnet-20240229"
+        
+        # Prepare message parameters
+        message_params = {
+            "model": model_name,
+            "messages": [
                 {
                     "role": "user",
                     "content": prompt
                 }
             ]
-        )
+        }
+        
+        # Add optional parameters with validation
+        if 'temperature' in kwargs:
+            message_params['temperature'] = max(0.0, min(1.0, float(kwargs['temperature'])))
+        else:
+            message_params['temperature'] = 0.7  # Default
+        
+        if 'max_tokens' in kwargs:
+            message_params['max_tokens'] = min(8192, max(1, int(kwargs['max_tokens'])))
+        else:
+            message_params['max_tokens'] = 2000  # Default
+        
+        if 'top_p' in kwargs:
+            message_params['top_p'] = max(0.0, min(1.0, float(kwargs['top_p'])))
+        
+        # Handle stop sequences
+        if 'stop' in kwargs and kwargs['stop']:
+            message_params['stop_sequences'] = kwargs['stop'] if isinstance(kwargs['stop'], list) else [kwargs['stop']]
+        elif 'stop_sequences' in kwargs and kwargs['stop_sequences']:
+            message_params['stop_sequences'] = kwargs['stop_sequences']
+        
+        # Create message
+        response = client.messages.create(**message_params)
         
         # Return the response content
         return response.content[0].text
@@ -457,5 +592,7 @@ def _call_anthropic(api_key: str, prompt: str) -> str:
             raise Exception("API quota exceeded or rate limit reached")
         elif "network" in error_msg or "connection" in error_msg:
             raise Exception("Network connection failed")
+        elif "model" in error_msg and ("not found" in error_msg or "does not exist" in error_msg):
+            raise Exception(f"Model '{model_name}' not found or not accessible")
         else:
             raise Exception(f"Anthropic API error: {str(e)}")
