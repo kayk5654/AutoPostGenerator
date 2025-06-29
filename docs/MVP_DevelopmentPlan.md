@@ -451,6 +451,44 @@ python stop.py
 
 **Phase 9 Final Status: PRODUCTION READY** 🎉
 
+### Phase 10: Unicode Text Sanitization and Character Encoding Fix
+
+**Objective:** Fix character encoding issues in generated posts to prevent corrupted characters across all LLM providers.
+
+-   [ ] **10.1: Unicode Text Sanitization Service**
+    -   [ ] Create `utils/text_sanitizer.py` with comprehensive Unicode handling
+    -   [ ] Implement `normalize_unicode_text()` function with NFKC normalization
+    -   [ ] Add `fix_common_encoding_issues()` for known problematic characters
+    -   [ ] Create character replacement mapping for common corrupted patterns
+
+-   [ ] **10.2: Enhanced Post Content Cleaning**
+    -   [ ] Enhance `_clean_post_content()` in `services/llm_service.py`
+    -   [ ] Add Unicode normalization to the cleaning pipeline
+    -   [ ] Implement smart quote and dash normalization
+    -   [ ] Add comprehensive character validation and replacement
+
+-   [ ] **10.3: Provider-Specific Character Handling**
+    -   [ ] Add post-processing to all LLM provider functions
+    -   [ ] Ensure consistent character encoding across OpenAI, Anthropic, Google
+    -   [ ] Add provider-specific character issue detection and fixing
+    -   [ ] Implement encoding validation in API response handling
+
+-   [ ] **10.4: UI and Export Character Safety**
+    -   [ ] Enhance data export sanitization with Unicode handling
+    -   [ ] Add character encoding validation in UI display
+    -   [ ] Implement safe character fallbacks for problematic Unicode
+    -   [ ] Add character encoding tests across the entire pipeline
+
+**Technical Requirements:**
+- **Files to Create:** `utils/text_sanitizer.py`
+- **Files to Modify:** `services/llm_service.py`, `utils/data_exporter.py`, provider functions
+- **Dependencies:** No new external dependencies (uses Python's unicodedata)
+- **Integration:** Text processing layer enhancement across all components
+- **Effort Estimate:** 4-6 hours
+- **Risk Level:** Low (additive text processing improvements)
+
+**Problem Solved:** Eliminates character corruption issues like "窶覇" instead of "—" in generated posts from any LLM provider or model.
+
 ### Implementation Strategy
 
 #### **Development Order (Recommended)**
