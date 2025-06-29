@@ -1,8 +1,11 @@
 import pytest
 import io
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, AsyncMock
 import pandas as pd
+import asyncio
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
 
 
 @pytest.fixture
@@ -772,4 +775,307 @@ Run it.
             >>> csv_data, filename = create_csv_export(posts, "LinkedIn")
         ''',
         'poor_docstring': 'Does stuff with posts.'
+    }
+
+
+# Phase 9 Testing Fixtures for Dynamic Model Selection
+
+@pytest.fixture
+def phase9_provider_model_endpoints():
+    """Phase 9 provider model endpoints configuration."""
+    return {
+        "openai": {
+            "base_url": "https://api.openai.com/v1",
+            "models_endpoint": "/models",
+            "auth_method": "bearer_token",
+            "rate_limit": 60,
+            "timeout": 30,
+            "discovery_method": "api_endpoint"
+        },
+        "anthropic": {
+            "base_url": "https://api.anthropic.com/v1",
+            "models_endpoint": None,  # Uses trial-and-error approach
+            "auth_method": "x_api_key", 
+            "rate_limit": 50,
+            "timeout": 30,
+            "discovery_method": "trial_and_error"
+        },
+        "google": {
+            "base_url": "https://generativelanguage.googleapis.com/v1",
+            "models_endpoint": "/models",
+            "auth_method": "api_key",
+            "rate_limit": 60,
+            "timeout": 30,
+            "discovery_method": "api_endpoint"
+        }
+    }
+
+
+@pytest.fixture
+def phase9_model_capabilities():
+    """Phase 9 model capabilities for testing."""
+    return {
+        "gpt-4o": {
+            "provider": "openai",
+            "max_tokens": 4096,
+            "context_window": 128000,
+            "supports_functions": True,
+            "supports_vision": True,
+            "supports_json_mode": True,
+            "temperature_range": [0.0, 2.0],
+            "top_p_range": [0.0, 1.0],
+            "pricing": {
+                "input_per_1k": 0.005,
+                "output_per_1k": 0.015
+            },
+            "deprecated": False,
+            "version": "2024-05-13"
+        },
+        "claude-3-5-sonnet-20241022": {
+            "provider": "anthropic",
+            "max_tokens": 8192,
+            "context_window": 200000,
+            "supports_functions": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+            "temperature_range": [0.0, 1.0],
+            "top_p_range": [0.0, 1.0],
+            "pricing": {
+                "input_per_1k": 0.003,
+                "output_per_1k": 0.015
+            },
+            "deprecated": False,
+            "version": "2024-10-22"
+        },
+        "gemini-1.5-pro": {
+            "provider": "google",
+            "max_tokens": 8192,
+            "context_window": 1048576,
+            "supports_functions": True,
+            "supports_vision": True,
+            "supports_json_mode": True,
+            "temperature_range": [0.0, 2.0],
+            "top_p_range": [0.0, 1.0],
+            "pricing": {
+                "input_per_1k": 0.00125,
+                "output_per_1k": 0.005
+            },
+            "deprecated": False,
+            "version": "001"
+        }
+    }
+
+
+@pytest.fixture
+def phase9_available_models():
+    """Phase 9 available models data for UI testing."""
+    return {
+        'openai': [
+            {'id': 'gpt-4o', 'name': 'GPT-4 Optimized', 'description': 'Latest GPT-4 model'},
+            {'id': 'gpt-4o-mini', 'name': 'GPT-4 Mini', 'description': 'Smaller, faster GPT-4'},
+            {'id': 'gpt-3.5-turbo', 'name': 'GPT-3.5 Turbo', 'description': 'Fast and capable'}
+        ],
+        'anthropic': [
+            {'id': 'claude-3-5-sonnet-20241022', 'name': 'Claude 3.5 Sonnet', 'description': 'Most capable Claude model'},
+            {'id': 'claude-3-haiku-20240307', 'name': 'Claude 3 Haiku', 'description': 'Fast and efficient'}
+        ],
+        'google': [
+            {'id': 'gemini-1.5-pro', 'name': 'Gemini 1.5 Pro', 'description': 'Most capable multimodal model'},
+            {'id': 'gemini-1.5-flash', 'name': 'Gemini 1.5 Flash', 'description': 'Fast and versatile'}
+        ]
+    }
+
+
+@pytest.fixture
+def phase9_dynamic_model_parameters():
+    """Phase 9 dynamic model parameters for testing."""
+    return {
+        'gpt-4o': {
+            'temperature': 0.7,
+            'max_tokens': 4096,
+            'top_p': 1.0,
+            'frequency_penalty': 0.0,
+            'presence_penalty': 0.0,
+            'response_format': {'type': 'text'}
+        },
+        'claude-3-5-sonnet-20241022': {
+            'temperature': 0.7,
+            'max_tokens': 8192,
+            'top_p': 1.0,
+            'stop_sequences': []
+        },
+        'gemini-1.5-pro': {
+            'temperature': 0.7,
+            'maxOutputTokens': 8192,
+            'topP': 1.0,
+            'topK': 40
+        }
+    }
+
+
+@pytest.fixture
+def phase9_mock_model_discovery_service():
+    """Phase 9 mock model discovery service."""
+    service = Mock()
+    service.fetch_available_models = AsyncMock()
+    service.cache_models = Mock()
+    service.get_cached_models = Mock()
+    service.discover_model_capabilities = AsyncMock()
+    service.invalidate_cache = Mock()
+    return service
+
+
+@pytest.fixture
+def phase9_mock_api_responses():
+    """Phase 9 mock API responses for different providers."""
+    return {
+        'openai_models': {
+            "object": "list",
+            "data": [
+                {
+                    "id": "gpt-4o",
+                    "object": "model",
+                    "created": 1686935002,
+                    "owned_by": "openai",
+                    "permission": [],
+                    "root": "gpt-4o",
+                    "parent": None
+                },
+                {
+                    "id": "gpt-4o-mini",
+                    "object": "model", 
+                    "created": 1686935002,
+                    "owned_by": "openai",
+                    "permission": [],
+                    "root": "gpt-4o-mini",
+                    "parent": None
+                }
+            ]
+        },
+        'gemini_models': {
+            "models": [
+                {
+                    "name": "models/gemini-1.5-pro",
+                    "displayName": "Gemini 1.5 Pro",
+                    "description": "Most capable multimodal model",
+                    "version": "001",
+                    "inputTokenLimit": 1048576,
+                    "outputTokenLimit": 8192,
+                    "supportedGenerationMethods": ["generateContent", "countTokens"]
+                }
+            ]
+        },
+        'anthropic_models': [
+            {
+                "id": "claude-3-5-sonnet-20241022",
+                "name": "Claude 3.5 Sonnet",
+                "max_tokens": 8192,
+                "context_window": 200000
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def phase9_cached_models():
+    """Phase 9 sample cached models data."""
+    return {
+        "openai": {
+            "models": ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
+            "cached_at": datetime.now().isoformat(),
+            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
+        },
+        "anthropic": {
+            "models": ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"],
+            "cached_at": datetime.now().isoformat(),
+            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
+        },
+        "google": {
+            "models": ["gemini-1.5-pro", "gemini-1.5-flash"],
+            "cached_at": datetime.now().isoformat(),
+            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
+        }
+    }
+
+
+@pytest.fixture
+def phase9_parameter_templates():
+    """Phase 9 model parameter templates."""
+    return {
+        "default": {
+            "temperature": 0.7,
+            "max_tokens": 4096,
+            "top_p": 1.0,
+            "frequency_penalty": 0.0,
+            "presence_penalty": 0.0
+        },
+        "creative": {
+            "temperature": 1.2,
+            "max_tokens": 4096,
+            "top_p": 0.9,
+            "frequency_penalty": 0.1,
+            "presence_penalty": 0.1
+        },
+        "precise": {
+            "temperature": 0.2,
+            "max_tokens": 4096,
+            "top_p": 0.8,
+            "frequency_penalty": 0.0,
+            "presence_penalty": 0.0
+        }
+    }
+
+
+@pytest.fixture
+def phase9_fallback_models():
+    """Phase 9 fallback model lists."""
+    return {
+        "openai": ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
+        "anthropic": ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"],
+        "google": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"]
+    }
+
+
+@pytest.fixture 
+def phase9_provider_model_mapping():
+    """Phase 9 mapping of providers to their supported models."""
+    return {
+        'openai': [
+            'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'
+        ],
+        'anthropic': [
+            'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 
+            'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'
+        ],
+        'google': [
+            'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro', 'gemini-pro-vision'
+        ]
+    }
+
+
+@pytest.fixture
+def phase9_ui_state_transitions():
+    """Phase 9 UI state transitions for testing."""
+    return [
+        {'from': 'initial', 'to': 'provider_selected', 'trigger': 'provider_change'},
+        {'from': 'provider_selected', 'to': 'api_key_entered', 'trigger': 'api_key_input'},
+        {'from': 'api_key_entered', 'to': 'models_loading', 'trigger': 'model_fetch_start'},
+        {'from': 'models_loading', 'to': 'models_loaded', 'trigger': 'model_fetch_success'},
+        {'from': 'models_loaded', 'to': 'model_selected', 'trigger': 'model_selection'},
+        {'from': 'model_selected', 'to': 'ready_for_generation', 'trigger': 'workflow_continue'}
+    ]
+
+
+@pytest.fixture
+def phase9_error_scenarios():
+    """Phase 9 error scenarios for testing."""
+    return {
+        'api_unavailable': Exception("Unable to fetch models: API unavailable"),
+        'invalid_api_key': Exception("Invalid API key: Cannot fetch available models"),
+        'network_error': Exception("Network error: Connection timeout"),
+        'rate_limit_exceeded': Exception("Rate limit exceeded: Too many requests"),
+        'malformed_response': Exception("Malformed API response"),
+        'unsupported_model': Exception("Model not supported by provider"),
+        'parameter_out_of_range': Exception("Parameter value out of valid range"),
+        'model_not_found': Exception("Specified model not found")
     }
