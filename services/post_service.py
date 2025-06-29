@@ -45,7 +45,14 @@ def generate_posts_workflow(
         api_key (str): API key for authentication with the LLM provider
         platform (str): Target social media platform ('X', 'LinkedIn', etc.)
         count (int): Number of posts to generate (1-50)
-        advanced_settings (dict, optional): Advanced generation preferences
+        advanced_settings (dict, optional): Advanced generation preferences including:
+            - creativity_level: 'Conservative', 'Balanced', 'Creative', 'Innovative'
+            - include_hashtags: bool
+            - include_emojis: bool  
+            - content_tone: 'Professional', 'Casual', 'Friendly', etc.
+            - call_to_action: bool
+            - avoid_controversy: bool
+            - custom_instructions: str (Phase 8 feature) - User-provided custom instructions
         
     Returns:
         List[str]: List of generated social media posts
@@ -118,8 +125,17 @@ def generate_posts_workflow(
                 logger.warning(f"[{workflow_id}] Post history processing failed, continuing without it: {str(e)}")
                 # Continue without post history rather than failing
         
-        # Step 4: Build master prompt with advanced settings
+        # Step 4: Build master prompt with advanced settings and custom instructions
         logger.info(f"[{workflow_id}] Step 4: Building master prompt")
+        
+        # Phase 8.3: Extract custom instructions from advanced settings
+        custom_instructions = ""
+        if advanced_settings and 'custom_instructions' in advanced_settings:
+            custom_instructions = advanced_settings['custom_instructions']
+            if custom_instructions:
+                logger.info(f"[{workflow_id}] Custom instructions provided: {len(custom_instructions)} characters")
+                logger.debug(f"[{workflow_id}] Custom instructions: {custom_instructions[:100]}...")
+        
         try:
             prompt = llm_service.build_master_prompt(
                 source_text, 
@@ -127,9 +143,14 @@ def generate_posts_workflow(
                 post_history, 
                 platform, 
                 count,
-                advanced_settings
+                advanced_settings,
+                custom_instructions
             )
             logger.info(f"[{workflow_id}] Built prompt with {len(prompt)} characters")
+            
+            # Log prompt structure for debugging (first 500 chars)
+            logger.debug(f"[{workflow_id}] Prompt preview: {prompt[:500]}...")
+            
         except Exception as e:
             logger.error(f"[{workflow_id}] Prompt building failed: {str(e)}")
             raise PromptBuildingError(f"Failed to build generation prompt: {str(e)}") from e

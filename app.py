@@ -41,6 +41,9 @@ def initialize_session_state():
         st.session_state.generation_in_progress = False
     if 'last_generation_settings' not in st.session_state:
         st.session_state.last_generation_settings = {}
+    # Phase 8.1: Custom instructions session state
+    if 'custom_instructions' not in st.session_state:
+        st.session_state.custom_instructions = ''
 
 def reset_generation_state():
     """Reset state for new post generation."""
@@ -60,6 +63,74 @@ def get_platform_character_limit(platform):
         "Instagram": 2200
     }
     return limits.get(platform, 1000)
+
+
+# Phase 8.1: Custom Instructions Helper Functions
+
+def validate_custom_instructions(instructions):
+    """
+    Validate custom instructions input.
+    
+    Args:
+        instructions (str): Custom instructions text
+        
+    Returns:
+        tuple[bool, str]: (is_valid, error_message)
+    """
+    if not instructions:
+        return True, ""  # Empty is valid (will be ignored)
+    
+    # Check for whitespace-only content
+    if instructions.isspace():
+        return False, "⚠️ Instructions cannot contain only whitespace"
+    
+    # Check character limit
+    MAX_INSTRUCTION_LENGTH = 500
+    if len(instructions) > MAX_INSTRUCTION_LENGTH:
+        return False, f"⚠️ Instructions must be {MAX_INSTRUCTION_LENGTH} characters or less (currently {len(instructions)})"
+    
+    # Basic security checks - remove potentially malicious content
+    dangerous_patterns = ['<script>', '</script>', 'javascript:', 'data:', 'vbscript:']
+    lower_instructions = instructions.lower()
+    for pattern in dangerous_patterns:
+        if pattern in lower_instructions:
+            return False, "⚠️ Instructions contain potentially unsafe content"
+    
+    return True, ""
+
+
+def sanitize_custom_instructions(instructions):
+    """
+    Sanitize custom instructions to remove potentially harmful content.
+    
+    Args:
+        instructions (str): Raw custom instructions
+        
+    Returns:
+        str: Sanitized instructions
+    """
+    if not instructions:
+        return ""
+    
+    # Remove dangerous patterns
+    dangerous_patterns = [
+        '<script>', '</script>', 'javascript:', 'data:', 'vbscript:',
+        '<iframe>', '</iframe>', '<object>', '</object>', '<embed>', '</embed>'
+    ]
+    
+    sanitized = instructions
+    for pattern in dangerous_patterns:
+        sanitized = sanitized.replace(pattern, '')
+    
+    # Clean up extra whitespace
+    sanitized = ' '.join(sanitized.split())
+    
+    return sanitized.strip()
+
+
+def reset_custom_instructions():
+    """Reset custom instructions to empty state."""
+    st.session_state.custom_instructions = ''
 
 
 # Phase 6.1: User Experience Enhancement Functions
@@ -286,13 +357,110 @@ def show_advanced_options():
                 help="Ensure content stays away from sensitive subjects"
             )
         
+        # Phase 8.1: Custom Instructions Section
+        st.markdown("---")
+        st.markdown("**🎯 Custom Instructions** *(Phase 8 Feature)*")
+        
+        # Custom instructions input with real-time validation
+        placeholder_text = """Add specific instructions to customize the generated posts...
+
+Examples:
+• Make the posts more engaging with questions and statistics
+• Include industry-specific terminology and data points
+• Use a professional but friendly tone throughout
+• Add call-to-action at the end of each post
+• Focus on actionable insights and practical tips
+• Include relevant hashtags for maximum reach"""
+        
+        # Create columns for instructions and controls
+        inst_col1, inst_col2 = st.columns([3, 1])
+        
+        with inst_col1:
+            custom_instructions = st.text_area(
+                "Additional Instructions",
+                value=st.session_state.custom_instructions,
+                placeholder=placeholder_text,
+                height=120,
+                key="custom_instructions_input",
+                help="Provide specific instructions to customize how posts are generated. These will be applied in addition to the standard settings above.",
+                max_chars=500
+            )
+            
+            # Real-time validation
+            if custom_instructions != st.session_state.custom_instructions:
+                # Validate and sanitize the input
+                is_valid, error_msg = validate_custom_instructions(custom_instructions)
+                if is_valid:
+                    sanitized_instructions = sanitize_custom_instructions(custom_instructions)
+                    st.session_state.custom_instructions = sanitized_instructions
+                    if custom_instructions != sanitized_instructions:
+                        st.info("ℹ️ Instructions have been automatically cleaned for safety")
+                else:
+                    st.error(error_msg)
+                    custom_instructions = st.session_state.custom_instructions
+        
+        with inst_col2:
+            st.markdown("**Quick Actions:**")
+            
+            # Character counter
+            char_count = len(st.session_state.custom_instructions)
+            char_limit = 500
+            if char_count > char_limit * 0.8:
+                color = "red" if char_count > char_limit else "orange"
+                st.markdown(f"<span style='color: {color}'>{char_count}/{char_limit}</span>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"{char_count}/{char_limit}")
+            
+            # Clear button
+            if st.button("🗑️ Clear", help="Clear all custom instructions"):
+                reset_custom_instructions()
+                st.rerun()
+            
+            # Example presets
+            if st.button("💡 Examples", help="Show example instructions"):
+                st.session_state.show_examples = not getattr(st.session_state, 'show_examples', False)
+        
+        # Show examples if requested
+        if getattr(st.session_state, 'show_examples', False):
+            with st.expander("📚 Example Instructions", expanded=True):
+                st.markdown("""
+                **Professional LinkedIn Posts:**
+                ```
+                Use industry statistics and data points. Include actionable insights. 
+                End with a thought-provoking question to encourage engagement.
+                ```
+                
+                **Engaging X/Twitter Posts:**
+                ```
+                Keep it concise and punchy. Use relevant hashtags. 
+                Include emojis for visual appeal. Ask questions to spark conversation.
+                ```
+                
+                **Educational Content:**
+                ```
+                Break down complex topics into easy-to-understand points. 
+                Use bullet points and numbered lists. Include practical examples.
+                ```
+                
+                **Brand Awareness:**
+                ```
+                Highlight unique value propositions. Use brand voice consistently. 
+                Include subtle call-to-actions. Focus on customer benefits.
+                ```
+                """)
+            
+            if st.button("❌ Hide Examples"):
+                st.session_state.show_examples = False
+                st.rerun()
+        
         return {
             'creativity_level': creativity_level,
             'include_hashtags': include_hashtags,
             'include_emojis': include_emojis,
             'content_tone': content_tone,
             'call_to_action': call_to_action,
-            'avoid_controversy': avoid_controversy
+            'avoid_controversy': avoid_controversy,
+            'custom_instructions': st.session_state.custom_instructions
         }
 
 # Initialize session state

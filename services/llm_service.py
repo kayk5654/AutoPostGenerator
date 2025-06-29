@@ -4,13 +4,14 @@ def build_master_prompt(
     post_history: list, 
     platform: str, 
     count: int,
-    advanced_settings: dict = None
+    advanced_settings: dict = None,
+    custom_instructions: str = None
 ) -> str:
     """
     Build comprehensive prompt for LLM generation with advanced settings support.
     
     This function creates a detailed, structured prompt that incorporates brand guidelines,
-    post history, platform requirements, and advanced user preferences.
+    post history, platform requirements, advanced user preferences, and custom instructions.
     
     Args:
         source_text (str): Combined text from source files containing content to share
@@ -25,6 +26,8 @@ def build_master_prompt(
             - content_tone: 'Professional', 'Casual', 'Friendly', etc.
             - call_to_action: bool
             - avoid_controversy: bool
+            - custom_instructions: str (Phase 8 feature)
+        custom_instructions (str, optional): Custom user instructions for post generation
         
     Returns:
         str: Formatted prompt for LLM with all requirements and guidelines
@@ -36,9 +39,53 @@ def build_master_prompt(
         ...     post_history=["Previous post 1", "Previous post 2"],
         ...     platform="LinkedIn",
         ...     count=3,
-        ...     advanced_settings={'creativity_level': 'Creative', 'include_hashtags': True}
+        ...     advanced_settings={'creativity_level': 'Creative', 'include_hashtags': True},
+        ...     custom_instructions="Include industry statistics and end with questions"
         ... )
     """
+    # Phase 8.2: Custom Instructions Processing
+    def sanitize_custom_instructions(instructions):
+        """Sanitize custom instructions for safe inclusion in prompts."""
+        if not instructions or not instructions.strip():
+            return ""
+        
+        # Remove potentially dangerous patterns
+        dangerous_patterns = [
+            '<script>', '</script>', 'javascript:', 'data:', 'vbscript:',
+            'system:', 'ignore previous', 'ignore all', 'override',
+            '<iframe>', '</iframe>', '<object>', '</object>'
+        ]
+        
+        sanitized = instructions
+        for pattern in dangerous_patterns:
+            sanitized = sanitized.replace(pattern, '')
+        
+        # Clean up extra whitespace
+        sanitized = ' '.join(sanitized.split())
+        return sanitized.strip()
+    
+    def validate_instruction_conflicts(instructions, platform, advanced_settings):
+        """Check for potential conflicts between custom instructions and platform/settings."""
+        if not instructions:
+            return []
+        
+        conflicts = []
+        lower_instructions = instructions.lower()
+        
+        # Check for platform conflicts
+        if platform == "X" and ("long" in lower_instructions or "detailed" in lower_instructions):
+            conflicts.append(f"Custom instruction suggests long content, but {platform} has 280 character limit")
+        
+        # Check for setting conflicts
+        if advanced_settings:
+            if not advanced_settings.get('include_hashtags', True) and 'hashtag' in lower_instructions:
+                conflicts.append("Custom instruction requests hashtags, but hashtag setting is disabled")
+            
+            if not advanced_settings.get('include_emojis', True) and 'emoji' in lower_instructions:
+                conflicts.append("Custom instruction requests emojis, but emoji setting is disabled")
+        
+        return conflicts
+    
     # Platform-specific formatting rules
     platform_rules = {
         "X": "- Keep posts under 280 characters\n- Use 1-2 relevant hashtags\n- Write concisely and engagingly\n- Consider using emojis sparingly",
@@ -85,6 +132,15 @@ Here are examples of previous posts to understand the preferred style and tone:
     call_to_action = advanced_settings.get('call_to_action', True)
     avoid_controversy = advanced_settings.get('avoid_controversy', True)
     
+    # Phase 8.2: Process custom instructions
+    # Get custom instructions from parameter or advanced_settings
+    final_custom_instructions = custom_instructions or advanced_settings.get('custom_instructions', '')
+    sanitized_instructions = sanitize_custom_instructions(final_custom_instructions)
+    
+    # Check for conflicts and log warnings (in production, these could be logged)
+    conflicts = validate_instruction_conflicts(sanitized_instructions, platform, advanced_settings)
+    # Note: In a production system, conflicts would be logged or handled appropriately
+    
     prompt += f"""
 
 ## PLATFORM-SPECIFIC REQUIREMENTS FOR {platform.upper()}
@@ -96,7 +152,28 @@ Here are examples of previous posts to understand the preferred style and tone:
 - Include Hashtags: {"Yes" if include_hashtags else "No"}
 - Include Emojis: {"Yes, use appropriately" if include_emojis else "No emojis"}
 - Call-to-Action: {"Include where relevant" if call_to_action else "Avoid direct CTAs"}
-- Content Safety: {"Avoid controversial topics" if avoid_controversy else "Normal content guidelines"}
+- Content Safety: {"Avoid controversial topics" if avoid_controversy else "Normal content guidelines"}"""
+
+    # Phase 8.2: Add custom instructions section if provided
+    if sanitized_instructions:
+        prompt += f"""
+
+## CUSTOM INSTRUCTIONS (High Priority)
+The user has provided specific instructions that should be prioritized in the generation:
+
+{sanitized_instructions}
+
+IMPORTANT: These custom instructions should be followed closely while still adhering to the platform requirements and brand guidelines above. If there are any conflicts between custom instructions and platform limitations (like character limits), prioritize platform requirements but try to adapt the custom instructions accordingly."""
+        
+        # Add conflict warnings if any
+        if conflicts:
+            prompt += f"""
+
+NOTE: The following potential conflicts were detected with your custom instructions:
+{chr(10).join(f"- {conflict}" for conflict in conflicts)}
+Please adapt the custom instructions to work within these constraints."""
+
+    prompt += f"""
 
 ## GENERATION INSTRUCTIONS
 Please generate exactly {count} {'post' if count == 1 else 'posts'} that:
@@ -108,7 +185,14 @@ Please generate exactly {count} {'post' if count == 1 else 'posts'} that:
 6. Follow the advanced preferences specified above
 7. {"Include relevant hashtags" if include_hashtags else "Avoid hashtags"}
 8. {"Use emojis appropriately" if include_emojis else "Do not use emojis"}
-9. {"Include calls-to-action where relevant" if call_to_action else "Focus on informational content"}
+9. {"Include calls-to-action where relevant" if call_to_action else "Focus on informational content"}"""
+    
+    # Add custom instructions to generation requirements if provided
+    if sanitized_instructions:
+        prompt += f"""
+10. **PRIORITY: Follow the custom instructions provided above while maintaining all other requirements**"""
+    
+    prompt += f"""
 
 ## OUTPUT FORMAT
 Format your response exactly as follows, separating each post with "---":
