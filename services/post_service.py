@@ -177,7 +177,19 @@ def generate_posts_workflow(
             if len(posts) != count:
                 logger.warning(f"[{workflow_id}] Generated {len(posts)} posts, expected {count}")
             
-            logger.info(f"[{workflow_id}] Successfully generated {len(posts)} posts")
+            # Phase 10.2: Log Unicode sanitization activity
+            logger.info(f"[{workflow_id}] Successfully generated {len(posts)} posts with Unicode sanitization applied")
+            
+            # Debug logging for post content analysis
+            for i, post in enumerate(posts, 1):
+                logger.debug(f"[{workflow_id}] Post {i}: {len(post)} characters")
+                # Check for common corruption patterns in the output (should be cleaned now)
+                corruption_patterns = ['窶覇', '竊会', '窶忤', '窶']
+                found_patterns = [pattern for pattern in corruption_patterns if pattern in post]
+                if found_patterns:
+                    logger.warning(f"[{workflow_id}] Post {i} still contains corruption patterns: {found_patterns}")
+                else:
+                    logger.debug(f"[{workflow_id}] Post {i} appears clean of known corruption patterns")
             
         except Exception as e:
             logger.error(f"[{workflow_id}] Response parsing failed: {str(e)}")
@@ -315,7 +327,7 @@ def get_workflow_status() -> Dict[str, Any]:
     """
     return {
         'service_name': 'post_service',
-        'version': '6.2.0',
+        'version': '10.2.0',
         'supported_providers': ['OpenAI', 'Google Gemini', 'Anthropic'],
         'supported_platforms': ['X', 'LinkedIn', 'Facebook', 'Instagram'],
         'max_post_count': 50,
@@ -325,6 +337,9 @@ def get_workflow_status() -> Dict[str, Any]:
             'post_history_learning',
             'advanced_settings',
             'comprehensive_logging',
-            'graceful_error_handling'
+            'graceful_error_handling',
+            'unicode_text_sanitization',  # Phase 10.2 feature
+            'character_encoding_fixes',   # Phase 10.2 feature
+            'provider_response_cleaning'  # Phase 10.2 feature
         ]
     }
