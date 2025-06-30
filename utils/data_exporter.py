@@ -76,7 +76,10 @@ def _sanitize_posts(posts: List[str]) -> List[str]:
 
 def _sanitize_csv_content(content: str) -> str:
     """
-    Sanitize content for CSV safety.
+    Sanitize content for CSV safety with Unicode text sanitization.
+    
+    Phase 10.4: Enhanced with Unicode sanitization to ensure character encoding
+    safety in exported CSV files, preventing corruption in Excel and other tools.
     
     Args:
         content: Raw content string
@@ -84,6 +87,25 @@ def _sanitize_csv_content(content: str) -> str:
     Returns:
         Sanitized content string
     """
+    import logging
+    
+    # Configure logger for this module
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Phase 10.4: Unicode sanitization FIRST to fix encoding issues in export
+        # Import here to avoid circular imports and lazy loading
+        from utils.text_sanitizer import get_text_sanitizer
+        
+        sanitizer = get_text_sanitizer()
+        content = sanitizer.sanitize_text(content)
+        logger.debug(f"Applied Unicode sanitization to export content: {len(content)} characters")
+        
+    except Exception as e:
+        # Log the error but continue with original content for backward compatibility
+        logger.warning(f"Unicode sanitization failed during export, continuing with original content: {str(e)}")
+        pass
+    
     # Remove null bytes and control characters (except newlines, tabs, carriage returns)
     content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', content)
     
