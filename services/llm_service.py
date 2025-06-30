@@ -313,18 +313,39 @@ def parse_llm_response(response: str) -> list[str]:
 
 def _clean_post_content(content: str) -> str:
     """
-    Clean and format post content.
+    Clean and format post content with Unicode sanitization.
+    
+    Phase 10.2: Enhanced with Unicode text sanitization to fix character encoding issues
+    like "窶覇" becoming "—" in all generated posts from any LLM provider.
     
     Args:
         content: Raw post content
         
     Returns:
-        str: Cleaned post content
+        str: Cleaned and Unicode-sanitized post content
     """
     import re
+    import logging
+    
+    # Configure logger for this module
+    logger = logging.getLogger(__name__)
     
     if not content:
         return ""
+    
+    try:
+        # Phase 10.2: Unicode sanitization FIRST to fix encoding issues
+        # Import here to avoid circular imports and lazy loading
+        from utils.text_sanitizer import get_text_sanitizer
+        
+        sanitizer = get_text_sanitizer()
+        content = sanitizer.sanitize_text(content)
+        logger.debug(f"Applied Unicode sanitization to content: {len(content)} characters")
+        
+    except Exception as e:
+        # Log the error but continue with original content to maintain backward compatibility
+        logger.warning(f"Unicode sanitization failed, continuing with original content: {str(e)}")
+        pass
     
     # Remove common prefixes
     content = re.sub(r'^(POST\s+\d+:\s*|Here\s+(are|is)\s+(your|the)\s+posts?:?\s*)', '', content, flags=re.IGNORECASE)
@@ -428,8 +449,18 @@ def _call_gemini(api_key: str, prompt: str, model: str = None, **kwargs) -> str:
         # Generate content
         response = model_instance.generate_content(prompt)
         
-        # Return the text response
-        return response.text
+        # Phase 10.2: Apply Unicode sanitization to provider response
+        try:
+            from utils.text_sanitizer import get_text_sanitizer
+            sanitizer = get_text_sanitizer()
+            clean_response = sanitizer.sanitize_text(response.text)
+            return clean_response
+        except Exception as e:
+            # Fallback to original response if sanitization fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Gemini response sanitization failed: {str(e)}")
+            return response.text
     except Exception as e:
         # Handle various API errors
         error_msg = str(e).lower()
@@ -508,8 +539,18 @@ def _call_openai(api_key: str, prompt: str, model: str = None, **kwargs) -> str:
         # Create chat completion
         response = client.chat.completions.create(**completion_params)
         
-        # Return the response content
-        return response.choices[0].message.content
+        # Phase 10.2: Apply Unicode sanitization to provider response
+        try:
+            from utils.text_sanitizer import get_text_sanitizer
+            sanitizer = get_text_sanitizer()
+            clean_response = sanitizer.sanitize_text(response.choices[0].message.content)
+            return clean_response
+        except Exception as e:
+            # Fallback to original response if sanitization fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"OpenAI response sanitization failed: {str(e)}")
+            return response.choices[0].message.content
     except Exception as e:
         # Handle various API errors
         error_msg = str(e).lower()
@@ -581,8 +622,18 @@ def _call_anthropic(api_key: str, prompt: str, model: str = None, **kwargs) -> s
         # Create message
         response = client.messages.create(**message_params)
         
-        # Return the response content
-        return response.content[0].text
+        # Phase 10.2: Apply Unicode sanitization to provider response
+        try:
+            from utils.text_sanitizer import get_text_sanitizer
+            sanitizer = get_text_sanitizer()
+            clean_response = sanitizer.sanitize_text(response.content[0].text)
+            return clean_response
+        except Exception as e:
+            # Fallback to original response if sanitization fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Anthropic response sanitization failed: {str(e)}")
+            return response.content[0].text
     except Exception as e:
         # Handle various API errors
         error_msg = str(e).lower()
